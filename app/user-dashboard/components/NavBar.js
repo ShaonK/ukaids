@@ -6,51 +6,61 @@ export default function NavBar() {
   return (
     <div
       className="
-        w-full h-[34px] flex items-center justify-between px-3 mt-[1px]
+        w-full h-[34px] flex items-center justify-between px-6 mt-[1px]
         bg-gradient-to-r from-[#121212] via-[rgba(69,46,21,0.5)] to-[#121212]
       "
     >
-      {/* Left: Logo */}
-      <div className="font-inter font-bold text-[15px] leading-none">
-        One <span className="font-bold text-[#d49e08]">Th</span>
+      {/* Left: Logo Image */}
+      <div className="flex items-center">
+        <Image
+          src="/logo.png" // ← তোমার PNG লোগো
+          alt="UKAIDS Logo"
+          width={110}
+          height={30}
+          priority
+        />
       </div>
 
       {/* Middle: Username box */}
-      {/* USERNAME BOX WITH GRADIENT BORDER */}
-      <div
-        className="flex items-center rounded-[2px] px-4 mr-10"
-        style={{
-          width: "118px",
-          height: "26px",
-          background: "transparent", // কোনো ভিতরের কালার নেই
-          borderWidth: "1px",
-          borderStyle: "solid",
-          borderImageSlice: 1,
-          borderImageSource: "linear-gradient(90deg, #3B82F6 0%, #C9771E 100%)",
-        }}
-      >
-        {/* Username */}
-        <span className="text-[14px] font-medium text-white flex-1">
-          Ranny dk
-        </span>
+      <div className="relative mr-10">
+        {/* OUTER GRADIENT BORDER WRAPPER */}
+        <div
+          className="p-[1.5px] rounded-[6px]"
+          style={{
+            width: "118px",
+            height: "26px",
+            background: "linear-gradient(90deg, #3B82F6, #C9771E)",
+          }}
+        >
+          {/* INNER BOX */}
+          <div
+            className="w-full h-full flex items-center px-3 rounded-[6px]"
+            style={{
+              background: "#121212", // navbar এর ব্যাকগ্রাউন্ড অনুযায়ী
+            }}
+          >
+            <span className="text-[14px] font-medium text-white flex-1">
+              Ranny dk
+            </span>
 
-        {/* Avatar */}
-        <Image
-          src="/useravater.png"
-          alt="avatar"
-          width={11}
-          height={11.25}
-          className="ml-2"
-        />
+            <Image
+              src="/useravater.png"
+              alt="avatar"
+              width={11}
+              height={11}
+              className="ml-2"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Right: Global Icon */}
       <Image
-        src="/global.png"
+        src="/globals.png"
         alt="global icon"
-        className="w-[12px] h-[12px]"
-        width={12}
-        height={12}
+        width={20}
+        height={20}
+        className="w-[20px] h-[20px]"
       />
     </div>
   );

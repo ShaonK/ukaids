@@ -14,7 +14,7 @@ export default function RootLayout({ children }) {
           <MobileStatusBar />
 
           {/* Page Content */}
-          <div className="pt-2">
+          <div className=" pt-9">
             {children}
           </div>
 
