@@ -28,13 +28,13 @@
 
 /* Reset default margins and box-sizing */
 html, body {
+  background: #000 !important;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
+  width: 100%;
+  min-height: 100%;
 }
+
 
 /* Paragraph justification */
 p {
