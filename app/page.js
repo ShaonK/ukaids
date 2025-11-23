@@ -33,7 +33,7 @@ export default function Home() {
       {/* Hero Section */}
       <div className="relative w-full h-[389px]">
         <Image
-          src="/hero-image.png"
+          src="/hero-images.png"
           alt="Hero"
           fill
           className="object-cover opacity-90"
