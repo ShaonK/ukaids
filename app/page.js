@@ -7,33 +7,28 @@ export default function Home() {
   return (
     <>
       {/* Sticky Navbar */}
-     <div
-  className="w-full flex justify-between items-center px-4 py-3 sticky top-0 z-20"
-  style={{
-    background:
-      "linear-gradient(90deg, #121212 10.1%, rgba(69, 46, 21, 0.5) 49.04%, #121212 93.75%)",
-  }}
->
-  <h1
-    className="text-lg font-semibold text-white"
-    style={{
-      width: "121px",
-      height: "31px",
-      top: "4px",
-      left: "25px",
-      position: "relative",
-      opacity: 1,
-    }}
-  >
-    One Tech
-  </h1>
+      <div
+        className="w-full flex justify-between items-center px-4 py-2 sticky top-0 z-20"
+        style={{
+          background:
+            "linear-gradient(90deg, #121212 10.1%, rgba(69, 46, 21, 0.5) 49.04%, #121212 93.75%)",
+        }}
+      >
+        {/* LOGO */}
+        <Image
+          src="/logo.png"
+          alt="One Tech Logo"
+          width={100}
+          height={20}
+          className="object-contain"
+        />
 
-  <Link href="/login">
-    <span className="px-4 py-2  text-white text-sm font-medium rounded-md hover:bg-blue-700">
-      Log in
-    </span>
-  </Link>
-</div>
+        <Link href="/login">
+          <span className="px-4 py-2 text-white text-sm font-medium rounded-md hover:bg-blue-700">
+            Log in
+          </span>
+        </Link>
+      </div>
 
       {/* Hero Section */}
       <div className="relative w-full h-[389px]">
@@ -55,8 +50,10 @@ export default function Home() {
 
           {/* Get Started Button */}
           <div className="w-full flex justify-end pr-4">
-            <Link  href="/Signup" >
-              <span className="bg-blue-600 text-white px-5 py-2 rounded-md text-sm font-medium shadow-lg">Get Started</span>
+            <Link href="/Signup">
+              <span className="bg-blue-600 text-white px-5 py-2 rounded-md text-sm font-medium shadow-lg">
+                Get Started
+              </span>
             </Link>
           </div>
         </div>
@@ -497,22 +494,30 @@ export default function Home() {
         <div className="flex flex-wrap gap-4 justify-center mt-4">
           {/* Google */}
           <div>
-           <Image src="/g.png" alt="Google" width={40} height={40} />
+            <Image src="/g.png" alt="Google" width={40} height={40} />
           </div>
 
           {/* Gmail */}
           <div>
-           <Link href={"/"}> <Image src="/gmail.gif" alt="Gmail" width={40} height={40} /></Link>
+            <Link href={"/"}>
+              {" "}
+              <Image src="/gmail.gif" alt="Gmail" width={40} height={40} />
+            </Link>
           </div>
 
           {/* YouTube */}
           <div>
-           <Image src="/youtube.gif" alt="YouTube" width={40} height={40} />
+            <Image src="/youtube.gif" alt="YouTube" width={40} height={40} />
           </div>
 
           {/* Instagram */}
           <div>
-           <Image src="/instagram.gif" alt="Instagram" width={40} height={40} />
+            <Image
+              src="/instagram.gif"
+              alt="Instagram"
+              width={40}
+              height={40}
+            />
           </div>
 
           {/* Facebook */}
@@ -521,7 +526,7 @@ export default function Home() {
           </div>
 
           {/* Twitter */}
-          <div >
+          <div>
             <Image src="/xt.png" alt="Twitter" width={40} height={40} />
           </div>
         </div>
