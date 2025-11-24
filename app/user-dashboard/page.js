@@ -4,7 +4,6 @@ import DashboardCard from "./components/DashboardCard";
 import FeatherImage from "./components/FeatherImage";
 import IncomeOptions from "./components/IncomeOptions";
 import InviteButton from "./components/InviteButton";
-import NavBar from "./components/NavBar";
 import QuickActions from "./components/QuickActions";
 import SpeakerMessage from "./components/SpeakerMessage";
 import TaskCard from "./components/TaskCard";
@@ -16,7 +15,7 @@ export default function DashboardPage() {
     <>
       <div>
         {/* Navigation */}
-        <NavBar />
+       
 
         {/* Wrapper for BG + Cards */}
         <div className="relative mx-auto w-[360px] min-h-screen bg-[#121212]">

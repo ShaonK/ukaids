@@ -31,33 +31,40 @@ export default function Home() {
       </div>
 
       {/* Hero Section */}
-      <div className="relative w-full h-[389px]">
+      <div className="relative w-full h-[365px] rounded-[12px] overflow-hidden">
+        {/* Background Image */}
         <Image
           src="/hero-images.png"
           alt="Hero"
           fill
-          className="object-cover opacity-90"
+          className="object-cover opacity-50"
         />
 
-        <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-4 text-white">
-          <h2 className="fw-bold w-[300px] h-[34px] text-[28px] font-bold mt-[40px] mb-2 ">
+        {/* Dark Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70"></div>
+
+        {/* Content */}
+        <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-4 text-white z-10">
+          <h2 className="w-[300px] text-[28px] font-bold mt-[40px] mb-2 leading-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]">
             Profit with Purpose
           </h2>
-          <p className="text-[14px] fw-[400] leading-snug w-[293px]  mb-3">
+
+          <p className="text-[14px] leading-snug w-[293px] mb-3 opacity-95 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
             Earn daily income, grow your network and empower real-world change.{" "}
-            <span className="text-[#C9771E] font-medium">Learn more</span>
+            <span className="text-[#C9771E] font-semibold">Learn more</span>
           </p>
 
           {/* Get Started Button */}
-          <div className="w-full flex justify-end pr-4">
+          <div className="w-full flex justify-end pr-4 mt-2">
             <Link href="/Signup">
-              <span className="bg-blue-600 text-white px-5 py-2 rounded-md text-sm font-medium shadow-lg">
+              <span className="bg-blue-600 text-white px-5 py-2 rounded-md text-sm font-medium shadow-lg active:scale-95 transition">
                 Get Started
               </span>
             </Link>
           </div>
         </div>
       </div>
+
       {/* Progress Cards */}
       <div className="w-full flex justify-between px-3 -mt-6 relative z-30">
         {[
@@ -338,29 +345,47 @@ export default function Home() {
       <section className="mt-12 flex justify-center px-4">
         <div className="w-[360px]">
           {/* Title */}
-          <h2 className="text-[26px] font-bold text-center w-[119px] mx-auto leading-[100%] tracking-[0.5%] text-white">
+          <h2 className="text-[26px] font-bold text-center text-white tracking-wide">
             About Us
           </h2>
 
-          {/* Background Image with overlay text */}
-          <div className="relative mt-4 w-[360px] h-[244px] rounded-[15px] overflow-hidden">
-            {/* BG Image */}
-            <Image
-              src={aboutImage}
-              alt="About Us Background"
-              className="w-full h-full object-cover rounded-[15px]"
-              priority
-            />
+          {/* Card */}
+          <div className="relative mt-4 rounded-[18px] overflow-hidden shadow-lg border border-white/10">
+            {/* Background Image */}
+            <div className="absolute inset-0">
+              <Image
+                src={aboutImage}
+                alt="About UKAIDS"
+                className="w-full h-full object-cover opacity-60"
+                priority
+              />
+              {/* Dark Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/70 to-black/80"></div>
+            </div>
 
-            {/* Overlay Text */}
-            <div className="absolute inset-0 flex justify-center items-center px-4">
-              <p className="w-[308px] text-[14px] leading-[22px] tracking-[0.5%] text-justify text-white ">
-                {`An "about us" page on a section that builds trust and connection by the team behind it. It introduces the brand purpose, such as how it started, the problem it solves, and builds trust and connection by the team behind it. It introduces the brand purpose, such as how it started, the problem it solves.`}
+            {/* Text Content */}
+            <div className="relative p-5 text-white">
+              <p className="text-[14px] leading-[22px] text-justify opacity-90">
+                UKAidS হলো যুক্তরাজ্যের ফরেন, কমনওয়েলথ ও ডেভেলপমেন্ট অফিস
+                (FCDO)-এর একটি প্রধান কেন্দ্রীয়ভাবে পরিচালিত তহবিল ব্যবস্থা, যা
+                ছোট ও মাঝারি আকারের সিভিল সোসাইটি সংস্থাগুলোকে আন্তর্জাতিকভাবে
+                টেকসই উন্নয়ন ও বৈশ্বিক লক্ষ্য (Global Goals) অর্জনে সহায়তা করে।
+                ২০১৪ সালে Global Poverty Action Fund (GPAF) থেকে পুনরায় গঠিত হয়ে
+                UKAidS নতুন কাঠামোতে কার্যক্রম শুরু করে। ২০১০ সাল থেকে FCDO মোট
+                ২৬৫টি সংস্থাকে ৩৭৪টি অনুদান প্রদান করেছে, যা ৪৬টি দেশে
+                উন্নয়নমূলক কার্যক্রম পরিচালনা করেছে। সেপ্টেম্বর ২০১৫ থেকে
+                BATTELBOX UKAidS-এর ফান্ড ম্যানেজমেন্ট অংশীদার হিসেবে কাজ করছে,
+                যেখানে Oxford Policy Management (OPM), Education Development
+                Trust, WEDC এবং KIT এই কনসোর্টিয়ামের সহযোগী প্রতিষ্ঠান।
+                কার্যক্রম বর্তমানে স্থগিত হলেও, UKAidS বহু সংস্থাকে ক্ষমতায়ন
+                করেছে যাতে তারা দারিদ্র্য হ্রাস, মানবিক উন্নয়ন এবং বৈশ্বিক
+                লক্ষ্য অর্জনে টেকসই ভূমিকা রাখতে পারে।
               </p>
             </div>
           </div>
         </div>
       </section>
+
       {/* Section 5: Blog Section */}
       {/* Section 5: Blog Section (Vertical Layout) */}
       <section className="mt-12 flex justify-center px-4">

@@ -1,21 +1,43 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function StickyBottomNav() {
-  const [active, setActive] = useState("get");
+  const pathname = usePathname();
 
   const items = [
-    { key: "home", icon: "/BottomHomeIcom.png", label: "Home" },
+    {
+      key: "home",
+      path: "/user-dashboard",
+      icon: "/BottomHomeIcon.png",
+      label: "Home",
+    },
     {
       key: "intro",
-      icon: "/BottomIntroductionIcon.png",
+      path: "/user-dashboard/introduction",
+      icon: "/BottomntroductionIcon.png",
       label: "Introduction",
     },
-    { key: "get", icon: "/BottomGetIcon.png", label: "Get" }, // center icon
-    { key: "team", icon: "/BottomTeamIcon.png", label: "Team" },
-    { key: "mine", icon: "/BottolmProfileIcon.png", label: "Mine" },
+    {
+      key: "get",
+      path: "/user-dashboard/get",
+      icon: "/BottomGetIcon.png",
+      label: "Get",
+    },
+    {
+      key: "team",
+      path: "/user-dashboard/team",
+      icon: "/BottomTeamIcon.png",
+      label: "Team",
+    },
+    {
+      key: "mine",
+      path: "/user-dashboard/mine",
+      icon: "/BottomProfileIcon.png",
+      label: "Mine",
+    },
   ];
 
   return (
@@ -55,12 +77,12 @@ export default function StickyBottomNav() {
       <div className="relative z-20 h-full flex items-end justify-between px-6">
         {items.map((item) => {
           const isCenter = item.key === "get";
-          const isActive = active === item.key;
+          const isActive = pathname === item.path;
 
           return (
-            <button
+            <Link
               key={item.key}
-              onClick={() => setActive(item.key)}
+              href={item.path}
               className="flex flex-col items-center gap-1 transition-all duration-200"
               style={{
                 transform: isCenter ? "translateY(-18px)" : "translateY(0)",
@@ -109,7 +131,7 @@ export default function StickyBottomNav() {
               >
                 {item.label}
               </span>
-            </button>
+            </Link>
           );
         })}
       </div>
