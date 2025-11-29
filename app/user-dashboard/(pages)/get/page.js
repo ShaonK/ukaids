@@ -1,29 +1,45 @@
 "use client";
 
-export default function TeamPage() {
+import HeaderButtons from "./components/HeaderButtons";
+import EarningsSummary from "./components/EarningsSummary";
+import TaskProgress from "./components/TaskProgress";
+import AssignmentNotice from "./components/AssignmentNotice";
+
+export default function GetPage() {
+
+  // 🔥 Dummy data (After API replace these)
+  const dashboardData = {
+    todayEarnings: 0,
+    accountBalance: 0,
+    completedTasks: 0,
+    totalTasks: 5,
+    workDays: "Monday to Sunday",
+    workHours: "Monday to Saturday, 12:01 AM to 11:59 PM",
+    contact: "Hiring Manager",
+  };
+
   return (
-    <div className="w-full min-h-screen flex justify-center items-center bg-[#121212]">
-      <div className="overflow-hidden w-full px-4">
-        <p className="text-xl font-semibold text-white whitespace-nowrap animate-marquee">
-          🚧 This get page is under construction 🚧
-        </p>
-      </div>
+    <div className="w-full">
 
-      <style jsx>{`
-        .animate-marquee {
-          display: inline-block;
-          animation: marquee 8s linear infinite;
-        }
+      <HeaderButtons startLabel="Start" taskListLabel="Task List" />
 
-        @keyframes marquee {
-          0% {
-            transform: translateX(100%);
-          }
-          100% {
-            transform: translateX(-100%);
-          }
-        }
-      `}</style>
+      <EarningsSummary
+        todayEarnings={dashboardData.todayEarnings}
+        accountBalance={dashboardData.accountBalance}
+      />
+
+      <TaskProgress
+        completed={dashboardData.completedTasks}
+        total={dashboardData.totalTasks}
+        onStart={() => console.log("Start Now Clicked")}
+      />
+
+      <AssignmentNotice
+        workDays={dashboardData.workDays}
+        workHours={dashboardData.workHours}
+        contact={dashboardData.contact}
+      />
+
     </div>
   );
 }
