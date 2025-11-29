@@ -12,13 +12,13 @@ export default function EarningsSummary({
       <div className="bg-[#1A1A1A] rounded-lg p-4 flex flex-col items-center text-white">
         <BarChart3 size={40} />
         <p className="mt-2 text-[14px]">{`Today's Earnings`}</p>
-        <p className="text-[20px] font-bold mt-1">₹ {todayEarnings}</p>
+        <p className="text-[20px] font-bold mt-1">$ {todayEarnings}</p>
       </div>
 
       <div className="bg-[#1A1A1A] rounded-lg p-4 flex flex-col items-center text-white">
         <PieChart size={40} />
         <p className="mt-2 text-[14px]">Account Balance:</p>
-        <p className="text-[20px] font-bold mt-1">₹ {accountBalance}</p>
+        <p className="text-[20px] font-bold mt-1">$ {accountBalance}</p>
       </div>
 
     </div>
