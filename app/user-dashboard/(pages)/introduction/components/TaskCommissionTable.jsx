@@ -1,62 +1,168 @@
 "use client";
 
-export default function TaskCommissionTable({ tableData, notes, warnings }) {
+import { useState, useMemo } from "react";
+
+export default function TeamBonusTable() {
+  // ------------------------------------
+  // MOCK TABLE DATA (ডাটাবেজ থেকে এলে সহজেই replace করা যাবে)
+  // ------------------------------------
+  const tableData = [
+    {
+      title: "Trainee Marketing Manager",
+      target: "15 members/month",
+      salary: "10,000",
+      details: [
+        "Daily subordinate bonus 3% of level 1 member.",
+        "2% for level 2 subordinate income.",
+        "1% for level 3 subordinate income.",
+      ],
+    },
+    {
+      title: "Full Marketing Manager",
+      target: "30 members/month",
+      salary: "22,000",
+      details: ["Detailed breakdown coming from backend"],
+    },
+    {
+      title: "Trainee Marketing Director",
+      target: "150 members (total)",
+      salary: "60,000",
+      details: ["Bonus calculated monthly"],
+    },
+    {
+      title: "Full Marketing Director",
+      target: "800 members (total)",
+      salary: "150,000",
+      details: ["Includes leadership bonus"],
+    },
+    {
+      title: "Trainers HR Director",
+      target: "1,500 members (total)",
+      salary: "150,000",
+      details: ["Eligible for team bonus upgrade"],
+    },
+    {
+      title: "Full HR Director",
+      target: "3,000 members (total)",
+      salary: "60,000",
+      details: ["Target must be maintained monthly"],
+    },
+    {
+      title: "Chief Marketing Officer (CMO)",
+      target: "8,000 members (total)",
+      salary: "1,500,000",
+      details: ["Highest level bonus tier"],
+    },
+  ];
+
+  // ------------------------------------
+  // STATE
+  // ------------------------------------
+  const [page, setPage] = useState(1);
+  const pageSize = 3;
+
+  // ------------------------------------
+  // PAGINATION (Fully Optimized)
+  // ------------------------------------
+  const totalPages = Math.ceil(tableData.length / pageSize);
+
+  const start = (page - 1) * pageSize;
+
+  const pageData = useMemo(() => {
+    return tableData.slice(start, start + pageSize);
+  }, [tableData, start, pageSize]);
+
+  // ------------------------------------
+  // ACCORDION
+  // ------------------------------------
+  const [openRow, setOpenRow] = useState(null);
+
+  const toggleRow = (index) => {
+    setOpenRow(openRow === index ? null : index);
+  };
+
+  // ------------------------------------
+  // JSX OUTPUT
+  // ------------------------------------
   return (
-    <div className="w-full px-4 mt-6">
+    <div className="w-full mt-8 px-4 text-white">
       {/* Title */}
-      <h2 className="text-center text-[22px] font-bold text-yellow-400 mb-4">
-        Task Commission Table
+      <h2 className="text-[16px] font-semibold mb-3">
+        Job Requirements & Fixed Salaries
       </h2>
 
-      {/* TABLE BOX */}
-      <div className="w-full bg-[#101010] border border-[#2A2A2A] rounded-xl p-4 shadow-md">
-        {/* HEADER */}
-        <div className="grid grid-cols-5 bg-[#1A1A1A] text-white font-semibold text-[12px] py-3 rounded-md border border-[#333]">
-          <span className="text-center">Level</span>
-          <span className="text-center">Level 3 Task %</span>
-          <span className="text-center">A-level</span>
-          <span className="text-center">B-level</span>
-          <span className="text-center">C-level</span>
+      {/* Table Wrapper (Scrollable + Sticky Header) */}
+      <div className="overflow-y-auto max-h-[400px] rounded-lg">
+        {/* Table Header */}
+        <div
+          className="
+            grid grid-cols-3
+            bg-[linear-gradient(90deg,#EC7B03,#3B82F6)]
+            text-[12px] font-semibold
+            sticky top-0 z-10
+          "
+        >
+          <div className="py-3 text-center">Position</div>
+          <div className="py-3 text-center">Recruitment Target</div>
+          <div className="py-3 text-center">Salary (BDT)</div>
         </div>
 
-        {/* ROWS */}
-        <div className="mt-2 space-y-2">
-          {tableData.map((row, i) => (
-            <div
-              key={i}
-              className="grid grid-cols-5 bg-[#0F0F0F] text-white text-[12px] py-3 rounded-md border border-[#2A2A2A]"
-            >
-              <span className="text-center">{row.level}</span>
-              <span className="text-center">{row.taskPercent}</span>
-              <span className="text-center">{row.aReward}</span>
-              <span className="text-center">{row.bReward}</span>
-              <span className="text-center">{row.cReward}</span>
+        {/* Table Rows */}
+        <div className="divide-y divide-[#ffffff18] border border-[#ffffff10]">
+          {pageData.map((row, idx) => (
+            <div key={idx}>
+              {/* Row Main */}
+              <div
+                onClick={() => toggleRow(idx)}
+                className="
+                  grid grid-cols-3 text-[11px] py-3 cursor-pointer
+                  bg-[#D9D9D91A] hover:bg-[#ffffff15]
+                  transition-all duration-200
+                "
+              >
+                <div className="text-center px-2">{row.title}</div>
+                <div className="text-center px-2">{row.target}</div>
+                <div className="text-center px-2 font-semibold text-[#EC7B03]">
+                  {row.salary}
+                </div>
+              </div>
+
+              {/* Accordion Content */}
+              {openRow === idx && (
+                <div className="px-3 py-2 bg-[#0f0f0f] text-[11px] space-y-1 border-b border-[#ffffff20]">
+                  {row.details.map((d, i) => (
+                    <p key={i} className="text-[#FFA447] leading-4">
+                      • {d}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
       </div>
 
-      {/* NOTES */}
-      <div className="mt-5 space-y-4 bg-[#111] p-4 rounded-lg border border-[#2A2A2A]">
-        {notes.map((note, idx) => (
-          <p key={idx} className="text-[13px] text-gray-300 leading-6">
-            <span className="text-yellow-400 font-bold mr-2">•</span>
-            {note}
-          </p>
-        ))}
-      </div>
+      {/* Pagination */}
+      <div className="flex justify-between items-center mt-4">
+        <button
+          disabled={page === 1}
+          onClick={() => setPage(page - 1)}
+          className="px-3 py-1 bg-[#EC7B03] disabled:bg-gray-700 rounded text-white"
+        >
+          Prev
+        </button>
 
-      {/* WARNINGS */}
-      <div className="mt-5 space-y-2 bg-[#111] p-4 rounded-lg border border-[#2A2A2A]">
-        <h3 className="text-yellow-400 font-semibold text-[14px]">
-          Warm Suggestions:
-        </h3>
+        <span className="text-[13px]">
+          Page {page} / {totalPages}
+        </span>
 
-        {warnings.map((warn, idx) => (
-          <p key={idx} className="text-[13px] text-gray-400 leading-6">
-            - {warn}
-          </p>
-        ))}
+        <button
+          disabled={page === totalPages}
+          onClick={() => setPage(page + 1)}
+          className="px-3 py-1 bg-[#3B82F6] disabled:bg-gray-700 rounded text-white"
+        >
+          Next
+        </button>
       </div>
     </div>
   );
