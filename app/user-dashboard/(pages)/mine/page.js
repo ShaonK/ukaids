@@ -1,29 +1,16 @@
-"use client";
+import DailyKeyScore from "./components/DailyKeyScore";
+import EarningsOverview from "./components/EarningsOverview";
+import MyWallets from "./components/MyWallets";
+import UserActionMenu from "./components/UserActionMenu";
 
-export default function TeamPage() {
+export default function MinePage() {
   return (
-    <div className="w-full min-h-screen flex justify-center items-center bg-[#121212]">
-      <div className="overflow-hidden w-full px-4">
-        <p className="text-xl font-semibold text-white whitespace-nowrap animate-marquee">
-          🚧 This Mine page is under construction 🚧
-        </p>
-      </div>
-
-      <style jsx>{`
-        .animate-marquee {
-          display: inline-block;
-          animation: marquee 8s linear infinite;
-        }
-
-        @keyframes marquee {
-          0% {
-            transform: translateX(100%);
-          }
-          100% {
-            transform: translateX(-100%);
-          }
-        }
-      `}</style>
+    <div className="w-full p-4 flex flex-col items-center">
+      <DailyKeyScore name="dks ukaids" score={70} />
+      <MyWallets income="250.00" personal="250.00" />
+      {/* Earnings Overview Section */}
+      <EarningsOverview />
+      <UserActionMenu />
     </div>
   );
 }
