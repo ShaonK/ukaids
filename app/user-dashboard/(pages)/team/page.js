@@ -4,6 +4,8 @@ import TeamData from "./components/TeamData";
 import TeamFeatureImage from "./components/TeamFeatureImage";
 import PositionResponsibilities from "./components/PositionResponsibilities";
 import PromotionCriteria from "./components/PromotionCriteria";
+import JobRequirementsFixedSalaries from "./components/JobRequirementsFixedSalaries";
+import TeamPerformanceBonusPolicy from "./components/TeamPerformanceBonusPolicy";
 
 export default function TeamPage() {
   const teamInfo = [
@@ -46,6 +48,8 @@ export default function TeamPage() {
       <TeamFeatureImage />
       <PositionResponsibilities items={responsibilities} />
       <PromotionCriteria leftItems={leftTexts} rightItems={rightTexts} />
+      <JobRequirementsFixedSalaries />
+      <TeamPerformanceBonusPolicy />
     </div>
   );
 }
