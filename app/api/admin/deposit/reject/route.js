@@ -1,31 +1,8 @@
 import prisma from "@/lib/prisma";
-import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
-
-const SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
-
-async function getAdminId() {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("admin_token")?.value;
-
-    if (!token) return null;
-
-    try {
-        const { payload } = await jwtVerify(token, SECRET);
-        return payload.id;
-    } catch {
-        return null;
-    }
-}
 
 export async function POST(req) {
     try {
         const { id } = await req.json();
-        const adminId = await getAdminId();
-
-        if (!adminId) {
-            return Response.json({ error: "Unauthorized" }, { status: 401 });
-        }
 
         const deposit = await prisma.deposit.findUnique({ where: { id } });
 
@@ -34,30 +11,42 @@ export async function POST(req) {
         }
 
         if (deposit.status !== "pending") {
-            return Response.json({
-                error: "This request is already processed"
-            }, { status: 400 });
+            return Response.json(
+                { error: "Already processed" },
+                { status: 400 }
+            );
         }
 
+        // 1️⃣ Update deposit status
         await prisma.deposit.update({
             where: { id },
             data: { status: "rejected" },
         });
 
+        // 2️⃣ Insert into DepositHistory
         await prisma.depositHistory.create({
             data: {
                 userId: deposit.userId,
-                depositId: deposit.id,
+                depositId: id,
                 amount: deposit.amount,
                 trxId: deposit.trxId,
                 status: "rejected",
-                processedBy: adminId,  // 🔥 REQUIRED
+                processedBy: 1, // TODO: real admin ID
+            },
+        });
+
+        // 3️⃣ Insert into RejectedDeposit table (FIX)
+        await prisma.rejectedDeposit.create({
+            data: {
+                userId: deposit.userId,
+                amount: deposit.amount,
+                trxId: deposit.trxId,
             },
         });
 
         return Response.json({ success: true });
     } catch (err) {
-        console.error(err);
+        console.log(err);
         return Response.json({ error: "Server error" }, { status: 500 });
     }
 }

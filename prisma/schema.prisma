@@ -77,11 +77,10 @@ model Admin {
   password  String
   createdAt DateTime @default(now())
 
-  processed Deposithistory[] @relation("AdminProcessed")
+  processed DepositHistory[] @relation("AdminProcessRelation")
 }
 
-
-model ApprovedDeposit {
+model approvedDeposit {
   id        Int      @id @default(autoincrement())
   userId    Int
   amount    Float
@@ -89,7 +88,7 @@ model ApprovedDeposit {
   createdAt DateTime @default(now())
 }
 
-model RejectedDeposit {
+model rejectedDeposit {
   id        Int      @id @default(autoincrement())
   userId    Int
   amount    Float
@@ -98,17 +97,16 @@ model RejectedDeposit {
 }
 
 model DepositHistory {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  depositId Int
-  amount    Float
-  trxId     String
-  status    String
-  processedBy Int   // admin id
-  createdAt DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  depositId   Int
+  amount      Float
+  trxId       String
+  status      String
+  processedBy Int
+  createdAt   DateTime @default(now())
 
   user    User    @relation(fields: [userId], references: [id])
   deposit Deposit @relation(fields: [depositId], references: [id])
-  admin   Admin   @relation(fields: [processedBy], references: [id])
+  admin   Admin   @relation("AdminProcessRelation", fields: [processedBy], references: [id])
 }
-
