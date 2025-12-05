@@ -12,13 +12,27 @@ export default function AdminDepositsPage() {
         setDeposits(data);
     }
 
-    async function updateDeposit(id, newStatus) {
-        await fetch("/api/admin/deposit-update", {
+    // ⭐ FIXED — correct API path
+    async function approve(id) {
+        const res = await fetch("/api/admin/deposit/approve", {
             method: "POST",
-            body: JSON.stringify({ id, status: newStatus }),
+            body: JSON.stringify({ id }),
         });
 
-        loadDeposits();
+        const data = await res.json();
+        if (data.success) loadDeposits();
+        else alert(data.error);
+    }
+
+    async function reject(id) {
+        const res = await fetch("/api/admin/deposit/reject", {
+            method: "POST",
+            body: JSON.stringify({ id }),
+        });
+
+        const data = await res.json();
+        if (data.success) loadDeposits();
+        else alert(data.error);
     }
 
     useEffect(() => {
@@ -34,13 +48,9 @@ export default function AdminDepositsPage() {
                     <div className="flex justify-between items-center">
                         <div>
                             <p className="font-semibold">{d.user.username}</p>
-                            <p className="text-sm">{d.user.mobile}</p>
-                            <p className="text-xs text-gray-500">
-                                Amount: ${d.amount}
-                            </p>
-                            <p className="text-xs">
-                                TRX: {d.trxId}
-                            </p>
+                            <p className="text-xs">Amount: ${d.amount}</p>
+                            <p className="text-xs">TRX ID: {d.trxId}</p>
+
                             <p className="text-xs">
                                 Status:{" "}
                                 <span
@@ -57,21 +67,23 @@ export default function AdminDepositsPage() {
                             </p>
                         </div>
 
-                        <div className="flex flex-col gap-2">
-                            <button
-                                className="bg-green-600 text-white px-3 py-1 rounded text-sm"
-                                onClick={() => updateDeposit(d.id, "approved")}
-                            >
-                                Approve
-                            </button>
+                        {d.status === "pending" && (
+                            <div className="flex flex-col gap-2">
+                                <button
+                                    className="bg-green-600 text-white px-3 py-1 rounded"
+                                    onClick={() => approve(d.id)}
+                                >
+                                    Approve
+                                </button>
 
-                            <button
-                                className="bg-red-600 text-white px-3 py-1 rounded text-sm"
-                                onClick={() => updateDeposit(d.id, "rejected")}
-                            >
-                                Reject
-                            </button>
-                        </div>
+                                <button
+                                    className="bg-red-600 text-white px-3 py-1 rounded"
+                                    onClick={() => reject(d.id)}
+                                >
+                                    Reject
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </Card>
             ))}

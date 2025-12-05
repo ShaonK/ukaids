@@ -4,14 +4,14 @@ import Card from "@/app/components/Card";
 import Button from "@/app/components/Button";
 import { logoutAction } from "@/app/(auth-pages)/logout/action";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import Link from "next/link";
 
 export default function MyPage() {
     const router = useRouter();
 
     async function handleLogout() {
         await logoutAction();
-        router.push("/login"); // Redirect to login after logout
+        router.push("/login");
     }
 
     return (
@@ -39,8 +39,15 @@ export default function MyPage() {
                 </ul>
             </Card>
 
-            <Button label="Deposit" className="bg-blue-600" />
-            <Button label="Withdraw" className="bg-green-600" />
+            {/* ✔ Deposit Page Link */}
+            <Link href="/user/deposit">
+                <Button label="Deposit" className="bg-blue-600 w-full" />
+            </Link>
+
+            {/* ✔ Withdraw Page Link (future use) */}
+            <Link href="/user/withdraw">
+                <Button label="Withdraw" className="bg-green-600 w-full" />
+            </Link>
 
             {/* ✔ LOGOUT BUTTON */}
             <button

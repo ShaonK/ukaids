@@ -3,28 +3,28 @@ import prisma from "@/lib/prisma";
 export async function POST(req) {
     const { id, status } = await req.json();
 
-    const deposit = await prisma.deposit.findUnique({
+    const withdraw = await prisma.withdraw.findUnique({
         where: { id },
     });
 
-    if (!deposit) {
-        return Response.json({ error: "Deposit not found" }, { status: 404 });
+    if (!withdraw) {
+        return Response.json({ error: "Withdraw not found" }, { status: 404 });
     }
 
-    // 🚀 APPROVE হলে Wallet Update হবে
+    // APPROVE হলে Wallet থেকে কমানো হবে
     if (status === "approved") {
         await prisma.wallet.update({
-            where: { userId: deposit.userId },
+            where: { userId: withdraw.userId },
             data: {
                 mainWallet: {
-                    increment: deposit.amount
+                    decrement: withdraw.amount
                 }
             }
         });
     }
 
     // Update status
-    await prisma.deposit.update({
+    await prisma.withdraw.update({
         where: { id },
         data: { status },
     });
