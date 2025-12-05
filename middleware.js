@@ -6,7 +6,7 @@ const SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 async function verifyToken(token) {
     try {
         return await jwtVerify(token, SECRET);
-    } catch (err) {
+    } catch {
         return null;
     }
 }
@@ -14,31 +14,32 @@ async function verifyToken(token) {
 export async function middleware(req) {
     const path = req.nextUrl.pathname;
 
-    const publicPaths = ["/", "/login", "/register"];
+    // PUBLIC ROUTES
+    const publicRoutes = ["/", "/login", "/register", "/admin/login"];
 
-    if (publicPaths.includes(path)) {
+    if (publicRoutes.includes(path)) {
         return NextResponse.next();
     }
 
-    const token = req.cookies.get("token")?.value;
-    const user = token ? await verifyToken(token) : null;
-
-    // USER ROUTES
+    // USER PROTECTED
     if (path.startsWith("/user")) {
-        if (!user) {
-            return NextResponse.redirect(new URL("/login", req.url));
-        }
+        const token = req.cookies.get("token")?.value;
+        if (!token) return NextResponse.redirect(new URL("/login", req.url));
+
+        const user = await verifyToken(token);
+        if (!user) return NextResponse.redirect(new URL("/login", req.url));
+
         return NextResponse.next();
     }
 
-    // ADMIN ROUTES
-    if (path.startsWith("/admin")) {
-        if (!user) {
-            return NextResponse.redirect(new URL("/admin/login", req.url));
-        }
+    // ADMIN PROTECTED
+    if (path.startsWith("/admin") && !path.startsWith("/admin/login")) {
+        const token = req.cookies.get("admin_token")?.value;
+        if (!token) return NextResponse.redirect(new URL("/admin/login", req.url));
 
-        // শুধুমাত্র admin ইউজার ঢুকতে পারবে
-        if (user.payload.username !== "admin") {
+        const admin = await verifyToken(token);
+
+        if (!admin || admin.payload.role !== "admin") {
             return NextResponse.redirect(new URL("/admin/login", req.url));
         }
 
@@ -49,6 +50,8 @@ export async function middleware(req) {
 }
 
 export const config = {
-    matcher: ["/user/:path*", "/admin/:path*"],
+    matcher: [
+        "/user/:path*",
+        "/admin/:path*",   // This covers /admin and all sub-routes
+    ],
 };
-
