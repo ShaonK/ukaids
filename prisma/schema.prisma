@@ -31,7 +31,13 @@ model User {
   withdraws      Withdraw[]
   wallet         Wallet?
   depositHistory DepositHistory[]
+
+  // ⭐ NEW RELATIONS
+  approvedDeposits ApprovedDeposit[]   @relation("ApprovedDepositToUser")
+  rejectedDeposits RejectedDeposit[]   @relation("RejectedDepositToUser")
 }
+
+
 
 model Wallet {
   id     Int  @id @default(autoincrement())
@@ -80,21 +86,29 @@ model Admin {
   processed DepositHistory[] @relation("AdminProcessRelation")
 }
 
-model approvedDeposit {
+model ApprovedDeposit {
   id        Int      @id @default(autoincrement())
   userId    Int
   amount    Float
   trxId     String
   createdAt DateTime @default(now())
+
+  user   User @relation("ApprovedDepositToUser", fields: [userId], references: [id])
 }
 
-model rejectedDeposit {
+
+
+model RejectedDeposit {
   id        Int      @id @default(autoincrement())
   userId    Int
   amount    Float
   trxId     String
   createdAt DateTime @default(now())
+
+  user   User @relation("RejectedDepositToUser", fields: [userId], references: [id])
 }
+
+
 
 model DepositHistory {
   id          Int      @id @default(autoincrement())
