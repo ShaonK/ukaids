@@ -8,7 +8,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="bg-gray-200 flex justify-center">
-        {children}
+        <div className="w-full max-w-[430px] bg-black min-h-screen">
+          {children}
+        </div>
       </body>
     </html>
   );

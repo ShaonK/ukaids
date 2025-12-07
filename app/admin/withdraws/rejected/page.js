@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { XCircle, Copy } from "lucide-react";
+import { XCircle } from "lucide-react";
 
 export default function RejectedWithdrawsPage() {
     const [list, setList] = useState([]);
@@ -11,7 +11,6 @@ export default function RejectedWithdrawsPage() {
 
     const PER_PAGE = 10;
 
-    // LOAD DATA
     async function loadData() {
         const res = await fetch("/api/admin/withdraws/rejected");
         const data = await res.json();
@@ -28,27 +27,20 @@ export default function RejectedWithdrawsPage() {
     }
 
     function statusIcon() {
-        return <XCircle size={20} color="#DC2626" strokeWidth={2.5} />;
+        return <XCircle size={18} color="#DC2626" strokeWidth={2.3} />;
     }
 
-    // DATE FILTER
     function filterByDate(item) {
         const now = new Date();
         const created = new Date(item.createdAt);
 
-        if (filter === "today")
-            return created.toDateString() === now.toDateString();
-
-        if (filter === "7d")
-            return now - created <= 7 * 24 * 3600 * 1000;
-
-        if (filter === "30d")
-            return now - created <= 30 * 24 * 3600 * 1000;
+        if (filter === "today") return created.toDateString() === now.toDateString();
+        if (filter === "7d") return now - created <= 7 * 86400000;
+        if (filter === "30d") return now - created <= 30 * 86400000;
 
         return true;
     }
 
-    // SEARCH + FILTER
     const filtered = list
         .filter(filterByDate)
         .filter((i) => {
@@ -64,12 +56,10 @@ export default function RejectedWithdrawsPage() {
 
     return (
         <div className="p-6">
-            <h1 className="mb-6" style={{ fontSize: 32, fontWeight: 700 }}>
-                Rejected Withdraws
-            </h1>
+            <h1 className="mb-6 text-[28px] font-bold">Rejected Withdraws</h1>
 
-            {/* Search + Filter */}
-            <div className="flex justify-between items-center mb-4 px-2">
+            {/* SEARCH + FILTER (STACKED FOR MOBILE) */}
+            <div className="flex flex-col gap-2 mb-4 px-1">
                 <input
                     type="text"
                     placeholder="Search user / wallet..."
@@ -78,7 +68,7 @@ export default function RejectedWithdrawsPage() {
                         setSearch(e.target.value);
                         setPage(1);
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg w-64 outline-none"
+                    className="px-4 py-2 border border-gray-300 rounded-lg w-full outline-none"
                 />
 
                 <select
@@ -87,7 +77,7 @@ export default function RejectedWithdrawsPage() {
                         setFilter(e.target.value);
                         setPage(1);
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg bg-white"
+                    className="px-4 py-2 border border-gray-300 rounded-lg bg-white w-full"
                 >
                     <option value="today">Today</option>
                     <option value="7d">Last 7 Days</option>
@@ -97,49 +87,79 @@ export default function RejectedWithdrawsPage() {
             </div>
 
             {/* TABLE */}
-            <div className="rounded-xl overflow-hidden mx-auto"
-                style={{ background: "#FFFFFF", border: "1px solid #E5E7EB", maxWidth: "95%" }}>
-                
+            <div
+                className="rounded-xl overflow-hidden mx-auto"
+                style={{
+                    background: "#FFFFFF",
+                    border: "1px solid #E5E7EB",
+                    maxWidth: "100%",
+                    fontSize: "13px",
+                }}
+            >
                 {/* HEADER */}
-                <div className="grid grid-cols-5 px-6"
-                    style={{ height: 52, fontSize: 18, fontWeight: 600, borderBottom: "1px solid #E5E7EB", alignItems: "center", marginLeft: 10, marginRight: 10 }}>
+                <div
+                    className="grid grid-cols-5 px-4"
+                    style={{
+                        height: 40,
+                        fontWeight: 600,
+                        borderBottom: "1px solid #E5E7EB",
+                        alignItems: "center",
+                    }}
+                >
                     <span>User</span>
-                    <span>Amount</span>
+                    <span>Amt</span>
                     <span>Wallet</span>
-                    <span>Status</span>
-                    <span className="text-right pr-6">Date</span>
+                    <span className="text-center">Status</span>
+                    <span className="text-right pr-2">Date</span>
                 </div>
 
                 {/* ROWS */}
                 {paginated.map((i) => (
-                    <div key={i.id} className="grid grid-cols-5 px-6"
-                        style={{ height: 40, fontSize: 16, borderBottom: "1px solid #E5E7EB", alignItems: "center", marginLeft: 10, marginRight: 10 }}>
-
-                        <span className="truncate" style={{ maxWidth: 120 }}>
-                            {i.user?.username || "Unknown"}
+                    <div
+                        key={i.id}
+                        className="grid grid-cols-5 px-4"
+                        style={{
+                            height: 38,
+                            borderBottom: "1px solid #E5E7EB",
+                            alignItems: "center",
+                        }}
+                    >
+                        {/* USER */}
+                        <span
+                            className="truncate cursor-pointer"
+                            title={i.user?.username}
+                            onClick={() => copyText(i.user?.username)}
+                        >
+                            {i.user?.username}
                         </span>
 
+                        {/* AMOUNT */}
                         <span
-                            className="truncate cursor-pointer flex gap-1"
+                            className="truncate cursor-pointer"
                             onClick={() => copyText(i.amount)}
                         >
-                            $
                             {String(i.amount).length > 4
                                 ? String(i.amount).slice(0, 4) + "…"
                                 : i.amount}
                         </span>
 
-                        <span className="truncate">{i.walletType}</span>
-
-                        <span className="flex justify-center">
-                            {statusIcon()}
+                        {/* WALLET TYPE */}
+                        <span className="truncate">
+                            {i.walletType === "mainWallet" ? "M/W" : "O/W"}
                         </span>
 
+                        {/* STATUS ICON CENTER */}
+                        <span className="flex justify-center">{statusIcon()}</span>
+
+                        {/* DATE → dotted + tooltip */}
                         <span
-                            className="text-right pr-6 truncate"
+                            className="text-right pr-2 truncate cursor-pointer"
                             title={new Date(i.createdAt).toLocaleString()}
+                            onClick={() =>
+                                copyText(new Date(i.createdAt).toLocaleString())
+                            }
                         >
-                            {new Date(i.createdAt).toLocaleDateString()}
+                            {new Date(i.createdAt).toLocaleDateString().slice(0, 5) + "…"}
                         </span>
                     </div>
                 ))}
@@ -147,17 +167,23 @@ export default function RejectedWithdrawsPage() {
 
             {/* PAGINATION */}
             <div className="flex justify-between mt-4 px-2">
-                <button disabled={page === 1} onClick={() => setPage(page - 1)}
-                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40">
+                <button
+                    disabled={page === 1}
+                    onClick={() => setPage(page - 1)}
+                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40"
+                >
                     Previous
                 </button>
 
-                <span className="font-medium text-gray-700">
+                <span className="font-medium text-gray-700 text-sm">
                     Page {page} / {totalPages}
                 </span>
 
-                <button disabled={page === totalPages} onClick={() => setPage(page + 1)}
-                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40">
+                <button
+                    disabled={page === totalPages}
+                    onClick={() => setPage(page + 1)}
+                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40"
+                >
                     Next
                 </button>
             </div>

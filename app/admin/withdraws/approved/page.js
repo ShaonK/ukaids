@@ -1,26 +1,37 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle, Copy } from "lucide-react";
+import {
+    CheckCircle,
+    XCircle,
+    Clock,
+    Copy,
+    Calendar
+} from "lucide-react";
 
-export default function ApprovedWithdrawsPage() {
-    const [list, setList] = useState([]);
+export default function ApprovedDepositsPage() {
+    const [deposits, setDeposits] = useState([]);
     const [search, setSearch] = useState("");
-    const [filter, setFilter] = useState("all");
     const [page, setPage] = useState(1);
 
     const PER_PAGE = 10;
 
-    // LOAD DATA
-    async function loadData() {
-        const res = await fetch("/api/admin/withdraws/approved");
+    async function loadDeposits() {
+        const res = await fetch("/api/admin/deposits");
         const data = await res.json();
-        setList(data || []);
+        setDeposits(Array.isArray(data) ? data : []);
     }
 
     useEffect(() => {
-        loadData();
+        loadDeposits();
     }, []);
+
+    // STATUS ICON
+    function renderStatusIcon(status) {
+        if (status === "approved") return <CheckCircle size={20} color="#059669" strokeWidth={2.4} />;
+        if (status === "rejected") return <XCircle size={20} color="#DC2626" strokeWidth={2.4} />;
+        return <Clock size={20} color="#D97706" strokeWidth={2.4} />;
+    }
 
     // COPY TEXT
     function copyText(text) {
@@ -28,166 +39,123 @@ export default function ApprovedWithdrawsPage() {
         alert("Copied: " + text);
     }
 
-    // STATUS ICON (Always Approved)
-    function statusIcon() {
-        return <CheckCircle size={20} color="#059669" strokeWidth={2.5} />;
-    }
+    // SEARCH + PAGINATION
+    const filtered = deposits.filter((d) =>
+        d.user.username.toLowerCase().includes(search.toLowerCase()) ||
+        d.trxId.toString().includes(search)
+    );
 
-    // DATE FILTER FUNCTION
-    function filterByDate(item) {
-        const now = new Date();
-        const created = new Date(item.createdAt);
-
-        if (filter === "today") {
-            return (
-                created.getDate() === now.getDate() &&
-                created.getMonth() === now.getMonth() &&
-                created.getFullYear() === now.getFullYear()
-            );
-        }
-
-        if (filter === "7d") {
-            return now - created <= 7 * 24 * 60 * 60 * 1000;
-        }
-
-        if (filter === "30d") {
-            return now - created <= 30 * 24 * 60 * 60 * 1000;
-        }
-
-        return true; // all
-    }
-
-    // SEARCH + FILTER
-    const filtered = list
-        .filter((item) => filterByDate(item))
-        .filter((d) => {
-            const username = d.user?.username?.toLowerCase() || "";
-            return (
-                username.includes(search.toLowerCase()) ||
-                d.walletType?.toLowerCase().includes(search.toLowerCase())
-            );
-        });
-
-    // PAGINATION
     const totalPages = Math.ceil(filtered.length / PER_PAGE);
     const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
     return (
         <div className="p-6">
 
-            <h1 className="mb-6" style={{ fontSize: 32, fontWeight: 700, color: "#111827" }}>
-                Approved Withdraws
+            {/* TITLE */}
+            <h1 className="font-bold mb-4" style={{ fontSize: 28 }}>
+                Approved Deposits
             </h1>
 
-            {/* SEARCH + FILTER */}
-            <div className="flex items-center justify-between mb-4 px-2">
-
-                {/* SEARCH */}
+            {/* SEARCH */}
+            <div className="mb-4 px-2">
                 <input
                     type="text"
-                    placeholder="Search user / wallet..."
+                    placeholder="Search user / trx id..."
                     value={search}
                     onChange={(e) => {
                         setSearch(e.target.value);
                         setPage(1);
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg w-64 focus:ring focus:ring-blue-200 outline-none"
+                    className="px-4 py-2 border rounded-lg w-full focus:ring focus:ring-blue-200 outline-none"
                 />
-
-                {/* SELECT FILTER */}
-                <select
-                    value={filter}
-                    onChange={(e) => {
-                        setFilter(e.target.value);
-                        setPage(1);
-                    }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg bg-white"
-                >
-                    <option value="today">Today</option>
-                    <option value="7d">Last 7 Days</option>
-                    <option value="30d">Last 30 Days</option>
-                    <option value="all">All</option>
-                </select>
             </div>
 
-            {/* TABLE */}
+            {/* TABLE CONTAINER */}
             <div
                 className="rounded-xl overflow-hidden mx-auto"
                 style={{
                     background: "#FFFFFF",
                     border: "1px solid #E5E7EB",
                     maxWidth: "95%",
+                    fontSize: 13
                 }}
             >
+
                 {/* HEADER */}
                 <div
-                    className="grid grid-cols-5 px-6"
+                    className="grid grid-cols-5 px-4"
                     style={{
-                        height: 52,
-                        fontSize: 18,
+                        height: 40,
                         fontWeight: 600,
-                        color: "#1F2937",
                         borderBottom: "1px solid #E5E7EB",
                         alignItems: "center",
-                        marginLeft: 10,
-                        marginRight: 10,
                     }}
                 >
                     <span>User</span>
-                    <span>Amount</span>
-                    <span>Wallet Type</span>
+                    <span>Amt</span>
+                    <span>TRX</span>
                     <span>Status</span>
-                    <span className="text-right pr-6">Date</span>
+                    <span className="text-right pr-4">Date</span>
                 </div>
 
                 {/* ROWS */}
                 {paginated.map((d) => (
                     <div
                         key={d.id}
-                        className="grid grid-cols-5 px-6"
+                        className="grid grid-cols-5 px-4"
                         style={{
                             height: 40,
-                            fontSize: 16,
                             borderBottom: "1px solid #E5E7EB",
                             alignItems: "center",
-                            color: "#1F2937",
-                            marginLeft: 10,
-                            marginRight: 10,
                         }}
                     >
+
                         {/* USER */}
-                        <span className="truncate" style={{ maxWidth: 120 }}>
-                            {d.user?.username || "Unknown"}
+                        <span
+                            className="truncate cursor-pointer"
+                            style={{ maxWidth: 70 }}
+                            onClick={() => copyText(d.user.username)}
+                        >
+                            {d.user.username}
                         </span>
 
-                        {/* AMOUNT (copyable + truncate) */}
+                        {/* AMOUNT */}
                         <span
-                            className="truncate flex items-center gap-1 cursor-pointer hover:text-blue-600"
+                            className="truncate cursor-pointer"
                             onClick={() => copyText(d.amount)}
                         >
-                            <span>$</span>
-                            <span>
-                                {String(d.amount).length > 4
-                                    ? String(d.amount).slice(0, 4) + "…"
-                                    : d.amount}
-                            </span>
+                            ${String(d.amount).length > 4
+                                ? String(d.amount).slice(0, 4) + "…"
+                                : d.amount}
                         </span>
 
-                        {/* WALLET TYPE */}
-                        <span className="truncate">{d.walletType}</span>
-
-                        {/* STATUS ICON */}
-                        <span className="flex justify-center">
-                            {statusIcon()}
-                        </span>
-
-                        {/* DATE */}
+                        {/* TRX ID */}
                         <span
-                            className="text-right pr-6 truncate"
-                            title={new Date(d.createdAt).toLocaleString()}
+                            className="truncate cursor-pointer flex items-center gap-1"
+                            style={{ maxWidth: 80 }}
+                            onClick={() => copyText(d.trxId)}
                         >
-                            {new Date(d.createdAt).toLocaleDateString()}
+                            {String(d.trxId).length > 5
+                                ? String(d.trxId).slice(0, 5) + "…"
+                                : d.trxId}
                         </span>
+
+                        {/* STATUS */}
+                        <span className="flex justify-center">
+                            {renderStatusIcon(d.status)}
+                        </span>
+
+                        {/* DATE (truncate + icon + tooltip) */}
+                        <span
+                            className="flex justify-end items-center gap-1 pr-4 cursor-pointer truncate"
+                            title={new Date(d.createdAt).toLocaleString()}
+                            onClick={() => copyText(new Date(d.createdAt).toLocaleDateString())}
+                            style={{ maxWidth: 75 }}
+                        >
+                            {new Date(d.createdAt).toLocaleDateString().slice(0, 6) + "…"}
+                            <Calendar size={14} className="text-gray-600" />
+                        </span>
+
                     </div>
                 ))}
             </div>

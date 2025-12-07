@@ -17,7 +17,6 @@ export default function AdminDepositsPage() {
 
     const PER_PAGE = 10;
 
-    // ✅ এখন শুধুই pending ডেটা লোড হবে
     async function loadDeposits() {
         const res = await fetch("/api/admin/deposits/pending");
         const data = await res.json();
@@ -29,10 +28,11 @@ export default function AdminDepositsPage() {
             method: "POST",
             body: JSON.stringify({ id }),
         });
+
         const data = await res.json();
         if (data.success) {
             setOpenMenu(null);
-            loadDeposits(); // reload only pending list
+            loadDeposits();
         }
     }
 
@@ -41,43 +41,44 @@ export default function AdminDepositsPage() {
             method: "POST",
             body: JSON.stringify({ id }),
         });
+
         const data = await res.json();
         if (data.success) {
             setOpenMenu(null);
-            loadDeposits(); // reload only pending list
+            loadDeposits();
         }
     }
 
-    // Outside click close
     useEffect(() => {
-        function handleOutside(e) {
+        function closeMenu(e) {
             if (!e.target.closest(".menu-dropdown") &&
-                !e.target.closest(".menu-button")) {
+                !e.target.closest(".menu-button")
+            ) {
                 setOpenMenu(null);
             }
         }
-        document.addEventListener("mousedown", handleOutside);
-        return () => document.removeEventListener("mousedown", handleOutside);
+
+        document.addEventListener("mousedown", closeMenu);
+        return () => document.removeEventListener("mousedown", closeMenu);
     }, []);
 
     useEffect(() => {
         loadDeposits();
     }, []);
 
-    // Status Icon
     function renderStatusIcon(status) {
-        if (status === "approved") return <CheckCircle size={20} color="#059669" strokeWidth={2.5} />;
-        if (status === "rejected") return <XCircle size={20} color="#DC2626" strokeWidth={2.5} />;
+        if (status === "approved")
+            return <CheckCircle size={20} color="#059669" strokeWidth={2.5} />;
+        if (status === "rejected")
+            return <XCircle size={20} color="#DC2626" strokeWidth={2.5} />;
         return <Clock size={20} color="#D97706" strokeWidth={2.5} />;
     }
 
-    // COPY TEXT
     function copyText(text) {
         navigator.clipboard.writeText(text);
         alert("Copied: " + text);
     }
 
-    // SEARCH + PAGINATION
     const filtered = deposits.filter((d) =>
         d.user.username.toLowerCase().includes(search.toLowerCase()) ||
         d.trxId.toString().includes(search)
@@ -90,18 +91,18 @@ export default function AdminDepositsPage() {
         <div className="p-6">
 
             {/* PAGE TITLE */}
-            <h1 style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginLeft: 10 }}>
-                Pending Deposit Requests
+            <h1 className="text-2xl font-bold text-[#111827] mb-4">
+                Pending Deposits
             </h1>
 
             {/* SEARCH BAR */}
-            <div className="mt-4 mb-4 flex justify-between items-center px-2">
+            <div className="mb-4">
                 <input
                     type="text"
                     placeholder="Search user / trx id..."
                     value={search}
                     onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg w-64 
+                    className="px-4 py-2 border border-gray-300 rounded-lg w-full text-sm
                                focus:ring focus:ring-blue-200 outline-none"
                 />
             </div>
@@ -112,113 +113,94 @@ export default function AdminDepositsPage() {
                 style={{
                     background: "#FFFFFF",
                     border: "1px solid #E5E7EB",
-                    maxWidth: "95%",
+                    maxWidth: "100%",
                 }}
             >
 
                 {/* HEADER */}
                 <div
-                    className="grid grid-cols-5 px-6"
+                    className="grid px-4 py-2 border-b"
                     style={{
-                        height: 52,
-                        fontSize: 18,
-                        fontWeight: 600,
+                        gridTemplateColumns: "1.2fr 1fr 1fr 0.6fr 0.8fr",
+                        fontSize: "14px",
+                        fontWeight: 700,
                         color: "#1F2937",
-                        borderBottom: "1px solid #E5E7EB",
-                        alignItems: "center",
-                        marginLeft: 10,
-                        marginRight: 10,
                     }}
                 >
                     <span>User</span>
-                    <span>Amount</span>
-                    <span>TRX ID</span>
+                    <span>Amt</span>
+                    <span>TRX</span>
                     <span>Status</span>
-                    <span className="text-right pr-6">Actions</span>
+                    <span className="text-right">Act</span>
                 </div>
 
                 {/* ROWS */}
                 {paginated.map((d) => (
                     <div
                         key={d.id}
-                        className="grid grid-cols-5 px-6 relative gap-2"
+                        className="grid px-4 py-2 border-b text-sm"
                         style={{
-                            height: 40,
-                            fontSize: 16,
-                            borderBottom: "1px solid #E5E7EB",
+                            gridTemplateColumns: "1.2fr 1fr 1fr 0.6fr 0.8fr",
                             alignItems: "center",
-                            color: "#1F2937",
-                            marginLeft: 10,
-                            marginRight: 10,
                         }}
                     >
-
                         {/* USER */}
-                        <span className="truncate" style={{ maxWidth: 120 }}>
-                            {d.user.username}
-                        </span>
+                        <span className="truncate">{d.user.username}</span>
 
                         {/* AMOUNT */}
                         <span
-                            className="truncate flex items-center gap-1 cursor-pointer hover:text-blue-600"
+                            className="truncate flex items-center gap-1 cursor-pointer"
                             onClick={() => copyText(d.amount)}
                         >
-                            <span>$</span>
-                            <span>
-                                {String(d.amount).length > 4
-                                    ? String(d.amount).slice(0, 4) + "…"
-                                    : d.amount}
-                            </span>
+                            ${String(d.amount).slice(0, 5)}
+                            {String(d.amount).length > 5 ? "…" : ""}
                         </span>
 
-                        {/* TRX ID */}
-                        <span className="truncate flex items-center gap-2" style={{ maxWidth: 160 }}>
-                            {String(d.trxId).length > 5
-                                ? String(d.trxId).slice(0, 5) + "…"
-                                : d.trxId}
+                        {/* TRX */}
+                        <span className="truncate flex items-center gap-1">
+                            {String(d.trxId).slice(0, 6)}
+                            {String(d.trxId).length > 6 ? "…" : ""}
                             <Copy
                                 size={16}
-                                className="cursor-pointer hover:text-blue-600"
+                                className="cursor-pointer"
                                 onClick={() => copyText(d.trxId)}
                             />
                         </span>
 
-                        {/* STATUS ICON */}
-                        <span className="flex items-center justify-center">
+                        {/* STATUS */}
+                        <span className="flex justify-center">
                             {renderStatusIcon(d.status)}
                         </span>
 
                         {/* ACTION MENU */}
-                        <div className="relative flex justify-end pr-6">
+                        <div className="relative flex justify-end">
 
                             {d.status === "pending" && (
                                 <>
                                     <button
-                                        onClick={() => setOpenMenu(openMenu === d.id ? null : d.id)}
-                                        className="menu-button w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-all active:scale-90"
+                                        onClick={() =>
+                                            setOpenMenu(openMenu === d.id ? null : d.id)
+                                        }
+                                        className="menu-button w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200"
                                     >
-                                        <MoreVertical size={22} strokeWidth={2.5} />
+                                        <MoreVertical size={20} />
                                     </button>
 
                                     {openMenu === d.id && (
                                         <div
-                                            className="menu-dropdown absolute right-0 top-1/2 -translate-y-1/2 bg-white shadow-xl rounded-lg border"
-                                            style={{
-                                                width: 140,
-                                                zIndex: 50,
-                                                fontSize: 15,
-                                            }}
+                                            className="menu-dropdown absolute right-0 top-0 bg-white shadow-xl rounded-lg border"
+                                            style={{ width: 130, zIndex: 50 }}
                                         >
                                             <button
                                                 onClick={() => approve(d.id)}
-                                                className="w-full text-left px-4 py-2 hover:bg-gray-100 text-green-600 font-medium"
+                                                className="w-full text-left px-4 py-2 hover:bg-gray-100 text-green-600"
                                             >
                                                 Approve
                                             </button>
 
                                             <button
                                                 onClick={() => reject(d.id)}
-                                                className="w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600 font-medium"
+                                                className="w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600"
                                             >
                                                 Reject
                                             </button>
@@ -233,7 +215,7 @@ export default function AdminDepositsPage() {
             </div>
 
             {/* PAGINATION */}
-            <div className="flex justify-between mt-4 px-2">
+            <div className="flex justify-between mt-4 text-sm">
                 <button
                     disabled={page === 1}
                     onClick={() => setPage(page - 1)}

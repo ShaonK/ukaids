@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
 import {
     LayoutDashboard,
     Users,
@@ -48,68 +47,45 @@ export default function AdminSidebar() {
             {/* Backdrop */}
             {!collapsed && <div className="fixed inset-0 bg-black/40 z-40" />}
 
-            {/* Collapsed toggle button */}
+            {/* Toggle Button */}
             {collapsed && (
                 <button
                     onClick={() => setCollapsed(false)}
-                    className="fixed left-4 top-4 z-[60] w-10 h-10 rounded-full bg-white text-black shadow-lg 
-                     flex items-center justify-center hover:scale-105 transition-all"
+                    className="
+                        absolute left-2 top-3 z-[60]
+                        w-9 h-9 rounded-full bg-white text-black shadow 
+                        flex items-center justify-center
+                    "
                 >
                     <ChevronRight size={18} />
                 </button>
             )}
 
-            {/* Sidebar ALWAYS in DOM */}
+            {/* Sidebar */}
             <aside
                 ref={sidebarRef}
                 className={`
-                    fixed left-0 top-0 h-screen z-50 
+                    absolute left-0 top-0 h-full z-50
                     bg-[var(--sidebar-bg)]
                     shadow-xl overflow-hidden
-                    transition-all duration-500 ease-in-out
-                    ${collapsed ? "w-0 opacity-0 -translate-x-full" : "w-[230px] opacity-100 translate-x-0"}
+                    transition-all duration-500
+                    ${collapsed ? "w-0 opacity-0" : "w-[230px] opacity-100"}
                 `}
-                style={{ borderRadius: "0 20px 20px 0" }}
             >
-                {/* Collapse button */}
+
+                {/* Close Button */}
                 {!collapsed && (
                     <button
                         onClick={() => setCollapsed(true)}
-                        className="absolute -right-5 top-5 w-10 h-10 rounded-full bg-white text-black shadow-lg 
-                           flex items-center justify-center hover:scale-105 transition-all"
+                        className="absolute -right-4 top-4 w-9 h-9 rounded-full bg-white text-black shadow flex items-center justify-center"
                     >
                         <ChevronLeft size={18} />
                     </button>
                 )}
 
-                {/* Title section */}
-                {!collapsed && (
-                    <div className="pt-10 px-[var(--sidebar-padding)]">
-                        <h1
-                            className="font-bold"
-                            style={{
-                                fontSize: "var(--title-size)",
-                                color: "var(--title-color)",
-                            }}
-                        >
-                            Admin
-                        </h1>
-
-                        <p
-                            className="mt-6"
-                            style={{
-                                fontSize: "var(--section-title-size)",
-                                color: "var(--section-title-color)",
-                            }}
-                        >
-                            Control Panel
-                        </p>
-                    </div>
-                )}
-
                 {/* Menu */}
                 {!collapsed && (
-                    <nav className="mt-10 px-[var(--sidebar-padding)]">
+                    <nav className="mt-14 px-5">
                         {links.map((item) => {
                             const Icon = item.icon;
                             const active = path === item.href;
@@ -118,23 +94,19 @@ export default function AdminSidebar() {
                                 <Link
                                     key={item.href}
                                     href={item.href}
-                                    className="flex items-center gap-6 rounded-lg transition-all no-underline"
+                                    className={`flex items-center gap-4 py-2 rounded-lg`}
                                     style={{
-                                        height: "var(--menu-row-height)",
-                                        background: active ? "var(--menu-active-bg)" : "transparent",
                                         color: active ? "var(--menu-active-text)" : "var(--menu-text)",
+                                        background: active ? "var(--menu-active-bg)" : "transparent",
                                     }}
                                 >
                                     <Icon
-                                        size={22}
+                                        size={20}
                                         style={{
                                             color: active ? "var(--menu-active-text)" : "var(--icon-color)",
-                                            marginRight: "8px",
                                         }}
                                     />
-                                    <span style={{ fontSize: "var(--menu-text-size)" }}>
-                                        {item.label}
-                                    </span>
+                                    <span>{item.label}</span>
                                 </Link>
                             );
                         })}

@@ -30,111 +30,124 @@ export default function AdminUsersPage() {
     }
 
     // SEARCH FILTER
-    const filtered = users.filter((u) =>
-        u.username.toLowerCase().includes(search.toLowerCase()) ||
-        u.mobile.includes(search)
+    const filtered = users.filter(
+        (u) =>
+            u.username.toLowerCase().includes(search.toLowerCase()) ||
+            u.mobile.includes(search)
     );
 
     // PAGINATION
     const totalPages = Math.ceil(filtered.length / PER_PAGE);
     const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
+    // COPY FUNCTION
+    function copyText(text) {
+        navigator.clipboard.writeText(text);
+        alert(`Copied: ${text}`);
+    }
+
     return (
-        <div className="p-6">
+        <div className="p-4">
 
             {/* PAGE TITLE */}
-            <h1 className="text-3xl font-bold mb-6">Users</h1>
+            <h1 className="text-2xl font-bold mb-4">Users</h1>
 
             {/* SEARCH BAR */}
-            <div className="flex items-center mb-4 gap-2">
-                <Search size={20} className="text-gray-600" />
+            <div className="flex items-center mb-3 gap-2">
+                <Search size={18} className="text-gray-600" />
                 <input
                     placeholder="Search user by username or mobile..."
-                    className="border px-4 py-2 rounded-lg w-72 focus:ring focus:ring-blue-200 outline-none"
+                    className="border px-3 py-2 rounded-lg w-full focus:ring focus:ring-blue-200 outline-none text-sm"
                     value={search}
                     onChange={(e) => {
                         setSearch(e.target.value);
                         setPage(1);
+                        loadUsers();
                     }}
-                    onKeyUp={loadUsers}
                 />
             </div>
 
             {/* TABLE WRAPPER */}
             <div
-                className="rounded-xl overflow-hidden mx-auto"
+                className="rounded-xl overflow-hidden mx-auto w-full"
                 style={{
                     background: "#FFFFFF",
                     border: "1px solid #E5E7EB",
-                    maxWidth: "95%",
                 }}
             >
-
                 {/* TABLE HEADER */}
                 <div
-                    className="grid grid-cols-5 px-6"
+                    className="grid grid-cols-5 text-sm font-semibold bg-gray-100"
                     style={{
-                        height: "52px",
-                        fontSize: "18px",
-                        fontWeight: 600,
-                        color: "#1F2937",
+                        height: "40px",
+                        fontSize: "13px",
                         borderBottom: "1px solid #E5E7EB",
                         alignItems: "center",
-                        marginLeft: "10px",
-                        marginRight: "10px",
+                        padding: "0 10px",
                     }}
                 >
-                    <span>Username</span>
-                    <span>Mobile</span>
-                    <span>Joined</span>
-                    <span>Status</span>
-                    <span className="text-right pr-6">Action</span>
+                    <span className="truncate">Username</span>
+                    <span className="truncate">Mobile</span>
+                    <span className="truncate">Joined</span>
+                    <span className="text-center truncate">Status</span>
+                    <span className="text-right truncate pr-3">Action</span>
                 </div>
 
                 {/* TABLE ROWS */}
                 {paginated.map((u) => (
                     <div
                         key={u.id}
-                        className="grid grid-cols-5 px-6"
+                        className="grid grid-cols-5 text-sm"
                         style={{
-                            height: "48px",
-                            fontSize: "16px",
+                            height: "42px",
                             borderBottom: "1px solid #E5E7EB",
                             alignItems: "center",
-                            color: "#1F2937",
-                            marginLeft: "10px",
-                            marginRight: "10px",
+                            padding: "0 10px",
                         }}
                     >
                         {/* Username */}
-                        <span className="truncate">{u.username}</span>
+                        <span
+                            className="truncate cursor-pointer"
+                            onClick={() => copyText(u.username)}
+                        >
+                            {u.username}
+                        </span>
 
                         {/* Mobile */}
-                        <span className="truncate">{u.mobile}</span>
+                        <span
+                            className="truncate cursor-pointer"
+                            onClick={() => copyText(u.mobile)}
+                        >
+                            {u.mobile}
+                        </span>
 
-                        {/* Joined Date */}
-                        <span className="truncate">
+                        {/* Joined */}
+                        <span
+                            className="truncate cursor-pointer"
+                            onClick={() =>
+                                copyText(new Date(u.createdAt).toLocaleDateString())
+                            }
+                        >
                             {new Date(u.createdAt).toLocaleDateString()}
                         </span>
 
-                        {/* Status Icon */}
-                        <span className="flex items-center">
+                        {/* STATUS */}
+                        <span className="flex justify-center">
                             {u.isBlocked ? (
-                                <Ban size={20} color="#DC2626" />
+                                <Ban size={18} className="text-red-600" />
                             ) : (
-                                <CheckCircle size={20} color="#059669" />
+                                <CheckCircle size={18} className="text-green-600" />
                             )}
                         </span>
 
                         {/* ACTION BUTTON */}
-                        <div className="text-right pr-6">
+                        <div className="text-right pr-2">
                             <button
                                 onClick={() => updateStatus(u.id, !u.isBlocked)}
-                                className={`px-3 py-1 rounded text-sm font-medium transition ${
-                                    u.isBlocked
-                                        ? "bg-green-600 text-white hover:bg-green-700"
-                                        : "bg-red-600 text-white hover:bg-red-700"
-                                }`}
+                                className={`px-3 py-1 text-xs rounded font-medium transition ${u.isBlocked
+                                        ? "bg-green-600 text-white"
+                                        : "bg-red-600 text-white"
+                                    }`}
                             >
                                 {u.isBlocked ? "Unblock" : "Block"}
                             </button>
@@ -144,7 +157,7 @@ export default function AdminUsersPage() {
             </div>
 
             {/* PAGINATION */}
-            <div className="flex justify-between items-center mt-4 px-2">
+            <div className="flex justify-between items-center mt-4 text-sm px-2">
                 <button
                     disabled={page === 1}
                     onClick={() => setPage(page - 1)}

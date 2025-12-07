@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { XCircle, Copy } from "lucide-react";
+import { XCircle } from "lucide-react";
 
 export default function RejectedDepositsPage() {
     const [list, setList] = useState([]);
@@ -11,7 +11,6 @@ export default function RejectedDepositsPage() {
 
     const PER_PAGE = 10;
 
-    // LOAD DATA
     async function loadData() {
         const res = await fetch("/api/admin/deposits/rejected");
         const data = await res.json();
@@ -22,15 +21,13 @@ export default function RejectedDepositsPage() {
         loadData();
     }, []);
 
-    // COPY TEXT
     function copyText(text) {
         navigator.clipboard.writeText(text);
         alert("Copied: " + text);
     }
 
-    // STATUS ICON
     function statusIcon() {
-        return <XCircle size={20} color="#DC2626" strokeWidth={2.5} />;
+        return <XCircle size={18} color="#DC2626" strokeWidth={2.2} />;
     }
 
     // DATE FILTER
@@ -39,20 +36,18 @@ export default function RejectedDepositsPage() {
         const created = new Date(item.createdAt);
         const diff = now - created;
 
-        if (filter === "today") {
-            return (
-                created.getDate() === now.getDate() &&
-                created.getMonth() === now.getMonth() &&
-                created.getFullYear() === now.getFullYear()
-            );
-        }
-        if (filter === "7d") return diff <= 7 * 24 * 60 * 60 * 1000;
-        if (filter === "30d") return diff <= 30 * 24 * 60 * 60 * 1000;
+        if (filter === "today")
+            return created.toDateString() === now.toDateString();
 
-        return true; // all
+        if (filter === "7d")
+            return diff <= 7 * 24 * 60 * 60 * 1000;
+
+        if (filter === "30d")
+            return diff <= 30 * 24 * 60 * 60 * 1000;
+
+        return true;
     }
 
-    // SEARCH + FILTER
     const filtered = list
         .filter((item) => filterByDate(item))
         .filter((d) => {
@@ -63,22 +58,18 @@ export default function RejectedDepositsPage() {
             );
         });
 
-    // PAGINATION
     const totalPages = Math.ceil(filtered.length / PER_PAGE);
     const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
     return (
         <div className="p-6">
 
-            {/* TITLE */}
-            <h1 className="mb-6" style={{ fontSize: 32, fontWeight: 700, color: "#111827" }}>
+            <h1 className="text-[26px] font-bold text-[#111827] mb-5">
                 Rejected Deposits
             </h1>
 
-            {/* SEARCH + FILTER */}
-            <div className="flex items-center justify-between mb-4 px-2">
-
-                {/* SEARCH */}
+            {/* Search + Filter */}
+            <div className="flex items-center justify-between mb-4 px-1">
                 <input
                     type="text"
                     placeholder="Search user / trx id..."
@@ -87,18 +78,16 @@ export default function RejectedDepositsPage() {
                         setSearch(e.target.value);
                         setPage(1);
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg w-64 
-                               focus:ring focus:ring-blue-200 outline-none"
+                    className="px-3 py-2 border border-gray-300 rounded-lg w-[60%] text-[14px]"
                 />
 
-                {/* SELECT FILTER */}
                 <select
                     value={filter}
                     onChange={(e) => {
                         setFilter(e.target.value);
                         setPage(1);
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg bg-white"
+                    className="px-3 py-2 border text-[14px] border-gray-300 rounded-lg bg-white"
                 >
                     <option value="today">Today</option>
                     <option value="7d">Last 7 Days</option>
@@ -118,80 +107,74 @@ export default function RejectedDepositsPage() {
             >
                 {/* HEADER */}
                 <div
-                    className="grid grid-cols-5 px-6"
+                    className="grid grid-cols-5 px-4"
                     style={{
-                        height: 52,
-                        fontSize: 18,
+                        height: 40,
+                        fontSize: 14,
                         fontWeight: 600,
                         color: "#1F2937",
                         borderBottom: "1px solid #E5E7EB",
                         alignItems: "center",
-                        marginLeft: 10,
-                        marginRight: 10,
                     }}
                 >
                     <span>User</span>
-                    <span>Amount</span>
-                    <span>TRX ID</span>
+                    <span>Amt</span>
+                    <span>TRX</span>
                     <span>Status</span>
-                    <span className="text-right pr-6">Date</span>
+                    <span className="text-right">Date</span>
                 </div>
 
                 {/* ROWS */}
                 {paginated.map((d) => (
                     <div
                         key={d.id}
-                        className="grid grid-cols-5 px-6"
+                        className="grid grid-cols-5 px-4 text-[13px]"
                         style={{
-                            height: 40,
-                            fontSize: 16,
+                            height: 38,
                             borderBottom: "1px solid #E5E7EB",
                             alignItems: "center",
                             color: "#1F2937",
-                            marginLeft: 10,
-                            marginRight: 10,
                         }}
                     >
                         {/* USER */}
-                        <span className="truncate" style={{ maxWidth: 120 }}>
-                            {d.user?.username || "Unknown"}
+                        <span
+                            className="truncate cursor-pointer"
+                            title={d.user?.username}
+                            onClick={() => copyText(d.user?.username)}
+                        >
+                            {d.user?.username}
                         </span>
 
-                        {/* AMOUNT (truncate + clickable) */}
+                        {/* AMOUNT */}
                         <span
-                            className="truncate flex items-center gap-1 cursor-pointer hover:text-blue-600"
+                            className="truncate cursor-pointer"
+                            title={d.amount}
                             onClick={() => copyText(d.amount)}
                         >
-                            <span>$</span>
-                            <span>
-                                {String(d.amount).length > 4
-                                    ? String(d.amount).slice(0, 4) + "…"
-                                    : d.amount}
-                            </span>
+                            ${String(d.amount).slice(0, 5)}
                         </span>
 
-                        {/* TRX ID (truncate + copy icon) */}
-                        <span className="truncate flex items-center gap-2" style={{ maxWidth: 160 }}>
-                            {String(d.trxId).length > 6
-                                ? String(d.trxId).slice(0, 6) + "…"
-                                : d.trxId}
-
-                            <Copy
-                                size={16}
-                                className="cursor-pointer hover:text-blue-600"
-                                onClick={() => copyText(d.trxId)}
-                            />
+                        {/* TRX */}
+                        <span
+                            className="truncate cursor-pointer"
+                            title={d.trxId}
+                            onClick={() => copyText(d.trxId)}
+                        >
+                            {String(d.trxId).slice(0, 6)}…
                         </span>
 
-                        {/* STATUS ICON CENTERED */}
+                        {/* STATUS */}
                         <span className="flex justify-center">
                             {statusIcon()}
                         </span>
 
                         {/* DATE */}
                         <span
-                            className="text-right pr-6 truncate"
+                            className="truncate text-right cursor-pointer"
                             title={new Date(d.createdAt).toLocaleString()}
+                            onClick={() =>
+                                copyText(new Date(d.createdAt).toLocaleString())
+                            }
                         >
                             {new Date(d.createdAt).toLocaleDateString()}
                         </span>
@@ -204,19 +187,19 @@ export default function RejectedDepositsPage() {
                 <button
                     disabled={page === 1}
                     onClick={() => setPage(page - 1)}
-                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40"
+                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40 text-[14px]"
                 >
                     Previous
                 </button>
 
-                <span className="font-medium text-gray-700">
+                <span className="font-medium text-gray-700 text-[14px]">
                     Page {page} / {totalPages}
                 </span>
 
                 <button
                     disabled={page === totalPages}
                     onClick={() => setPage(page + 1)}
-                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40"
+                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40 text-[14px]"
                 >
                     Next
                 </button>
