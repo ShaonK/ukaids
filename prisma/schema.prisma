@@ -32,12 +32,14 @@ model User {
   wallet         Wallet?
   depositHistory DepositHistory[]
 
-  // ⭐ NEW RELATIONS
-  approvedDeposits ApprovedDeposit[]   @relation("ApprovedDepositToUser")
-  rejectedDeposits RejectedDeposit[]   @relation("RejectedDepositToUser")
+  // ⭐ Deposit Relations
+  approvedDeposits ApprovedDeposit[]
+  rejectedDeposits RejectedDeposit[]
+
+  // ⭐ Withdraw Relations
+  approvedWithdraws ApprovedWithdraw[]
+  rejectedWithdraws RejectedWithdraw[]
 }
-
-
 
 model Wallet {
   id     Int  @id @default(autoincrement())
@@ -62,19 +64,57 @@ model Deposit {
   status    String   @default("pending")
   createdAt DateTime @default(now())
 
-  /// ⭐ নতুন relation
   history DepositHistory[]
 }
 
-model Withdraw {
-  id     Int  @id @default(autoincrement())
-  userId Int
-  user   User @relation(fields: [userId], references: [id])
+model ApprovedDeposit {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  amount    Float
+  trxId     String
+  createdAt DateTime @default(now())
 
+  user User @relation(fields: [userId], references: [id])
+}
+
+model RejectedDeposit {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  amount    Float
+  trxId     String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Withdraw {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
   amount     Float
   walletType String
   status     String   @default("pending")
   createdAt  DateTime @default(now())
+}
+
+model ApprovedWithdraw {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  amount     Float
+  walletType String
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model RejectedWithdraw {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  amount     Float
+  walletType String
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 model Admin {
@@ -85,30 +125,6 @@ model Admin {
 
   processed DepositHistory[] @relation("AdminProcessRelation")
 }
-
-model ApprovedDeposit {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  amount    Float
-  trxId     String
-  createdAt DateTime @default(now())
-
-  user   User @relation("ApprovedDepositToUser", fields: [userId], references: [id])
-}
-
-
-
-model RejectedDeposit {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  amount    Float
-  trxId     String
-  createdAt DateTime @default(now())
-
-  user   User @relation("RejectedDepositToUser", fields: [userId], references: [id])
-}
-
-
 
 model DepositHistory {
   id          Int      @id @default(autoincrement())

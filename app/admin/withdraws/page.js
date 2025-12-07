@@ -1,82 +1,65 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Card from "@/app/components/Card";
 
 export default function AdminWithdrawsPage() {
-  const [withdraws, setWithdraws] = useState([]);
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState([]);
 
-  async function loadWithdraws() {
+  async function load() {
     const res = await fetch("/api/admin/withdraws");
     const data = await res.json();
-    setWithdraws(data);
+    setList(data);
   }
 
-  async function updateWithdraw(id, newStatus) {
-    await fetch("/api/admin/withdraw-update", {
+  async function handle(id, action) {
+    setLoading((prev) => [...prev, id]);
+
+    await fetch(`/api/admin/withdraws/${action}`, {
       method: "POST",
-      body: JSON.stringify({ id, status: newStatus }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
     });
 
-    loadWithdraws();
+    // remove card instantly
+    setList((prev) => prev.filter((w) => w.id !== id));
+    setLoading((prev) => prev.filter((x) => x !== id));
   }
 
   useEffect(() => {
-    loadWithdraws();
+    load();
   }, []);
 
   return (
     <div className="p-4 space-y-4">
       <h1 className="text-xl font-bold">Withdraw Requests</h1>
 
-      {withdraws.map((w) => (
-        <Card key={w.id}>
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="font-semibold">{w.user.username}</p>
-              <p className="text-sm">{w.user.mobile}</p>
-
-              <p className="text-xs">
-                Amount: ${w.amount}
-              </p>
-
-              <p className="text-xs">
-                Wallet Type: {w.walletType}
-              </p>
-
-              <p className="text-xs">
-                Status:{" "}
-                <span
-                  className={
-                    w.status === "pending"
-                      ? "text-orange-600"
-                      : w.status === "approved"
-                        ? "text-green-600"
-                        : "text-red-600"
-                  }
-                >
-                  {w.status}
-                </span>
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <button
-                className="bg-green-600 text-white px-3 py-1 rounded text-sm"
-                onClick={() => updateWithdraw(w.id, "approved")}
-              >
-                Approve
-              </button>
-
-              <button
-                className="bg-red-600 text-white px-3 py-1 rounded text-sm"
-                onClick={() => updateWithdraw(w.id, "rejected")}
-              >
-                Reject
-              </button>
-            </div>
+      {list.map((w) => (
+        <div key={w.id} className="border p-4 rounded shadow flex justify-between">
+          <div>
+            <p><b>{w.user.username}</b></p>
+            <p>Amount: ${w.amount}</p>
+            <p>Wallet: {w.walletType}</p>
           </div>
-        </Card>
+
+          <div className="flex flex-col gap-2">
+            <button
+              disabled={loading.includes(w.id)}
+              onClick={() => handle(w.id, "approve")}
+              className="bg-green-600 text-white px-3 py-1 rounded"
+            >
+              Approve
+            </button>
+
+            <button
+              disabled={loading.includes(w.id)}
+              onClick={() => handle(w.id, "reject")}
+              className="bg-red-600 text-white px-3 py-1 rounded"
+            >
+              Reject
+            </button>
+          </div>
+        </div>
       ))}
     </div>
   );

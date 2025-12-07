@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+
+
+:root {
+  --sidebar-bg: #0B0F1A;
+  --title-color: #F2F4F7;
+  --section-title-color: #D6DAE1;
+  --menu-text: #CBCFD6;
+  --menu-text-hover: #ffffff;
+  --menu-active-bg: #a72e2e14;
+  --menu-active-text: #FFFFFF;
+  --icon-color: #AEB3BD;
+  --icon-hover: #FFFFFF;
+
+  --title-size: 30px;
+  --section-title-size: 21px;
+  --menu-text-size: 17px;
+  --icon-size: 18px;
+  --sidebar-padding: 24px;
+  --menu-row-height: 25px;
+}
 /* Mobile View Design Centering for Desktop */
 body {
   background: #f3f4f6;

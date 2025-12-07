@@ -1,9 +1,10 @@
 import prisma from "@/lib/prisma";
 
 export async function GET() {
-    const data = await prisma.rejectedDeposit.findMany({
-        orderBy: { id: "desc" }
+    const list = await prisma.rejectedDeposit.findMany({
+        include: { user: true },
+        orderBy: { createdAt: "desc" }
     });
 
-    return Response.json(data);
+    return Response.json(list);
 }

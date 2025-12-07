@@ -1,33 +1,220 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Card from "@/app/components/Card";
+import { XCircle, Copy } from "lucide-react";
 
 export default function RejectedDepositsPage() {
     const [list, setList] = useState([]);
+    const [search, setSearch] = useState("");
+    const [filter, setFilter] = useState("all");
+    const [page, setPage] = useState(1);
 
+    const PER_PAGE = 10;
+
+    // LOAD DATA
     async function loadData() {
         const res = await fetch("/api/admin/deposits/rejected");
         const data = await res.json();
-        setList(data);
+        setList(data || []);
     }
 
     useEffect(() => {
         loadData();
     }, []);
 
-    return (
-        <div className="p-4 space-y-4">
-            <h1 className="text-xl font-bold">Rejected Deposits</h1>
+    // COPY TEXT
+    function copyText(text) {
+        navigator.clipboard.writeText(text);
+        alert("Copied: " + text);
+    }
 
-            {list.map((d) => (
-                <Card key={d.id}>
-                    <p>User ID: {d.userId}</p>
-                    <p>Amount: ${d.amount}</p>
-                    <p>TRX: {d.trxId}</p>
-                    <p>Date: {new Date(d.createdAt).toLocaleString()}</p>
-                </Card>
-            ))}
+    // STATUS ICON (Always rejected)
+    function statusIcon() {
+        return <XCircle size={20} color="#DC2626" strokeWidth={2.5} />;
+    }
+
+    // DATE FILTER FUNCTION
+    function filterByDate(item) {
+        const now = new Date();
+        const created = new Date(item.createdAt);
+
+        if (filter === "today") {
+            return (
+                created.getDate() === now.getDate() &&
+                created.getMonth() === now.getMonth() &&
+                created.getFullYear() === now.getFullYear()
+            );
+        }
+
+        if (filter === "7d") {
+            return now - created <= 7 * 24 * 60 * 60 * 1000;
+        }
+
+        if (filter === "30d") {
+            return now - created <= 30 * 24 * 60 * 60 * 1000;
+        }
+
+        return true; // all
+    }
+
+    // SEARCH + FILTER COMBINED
+    const filtered = list
+        .filter((item) => filterByDate(item))
+        .filter((d) => {
+            const username = d.user?.username?.toLowerCase() || "";
+            return (
+                username.includes(search.toLowerCase()) ||
+                d.trxId.toString().includes(search)
+            );
+        });
+
+    // PAGINATION
+    const totalPages = Math.ceil(filtered.length / PER_PAGE);
+    const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+    return (
+        <div className="p-6">
+            <h1
+                className="mb-6"
+                style={{ fontSize: 32, fontWeight: 700, color: "#111827" }}>
+                Rejected Deposits
+            </h1>
+
+            {/* Search + Filter */}
+            <div className="flex items-center justify-between mb-4 px-2">
+
+                {/* Search */}
+                <input
+                    type="text"
+                    placeholder="Search user / trx id..."
+                    value={search}
+                    onChange={(e) => {
+                        setSearch(e.target.value);
+                        setPage(1);
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg w-64 focus:ring focus:ring-blue-200 outline-none"
+                />
+
+                {/* SELECT FILTER */}
+                <select
+                    value={filter}
+                    onChange={(e) => {
+                        setFilter(e.target.value);
+                        setPage(1);
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg bg-white"
+                >
+                    <option value="today">Today</option>
+                    <option value="7d">Last 7 Days</option>
+                    <option value="30d">Last 30 Days</option>
+                    <option value="all">All</option>
+                </select>
+            </div>
+
+            {/* TABLE */}
+            <div
+                className="rounded-xl overflow-hidden mx-auto"
+                style={{
+                    background: "#FFFFFF",
+                    border: "1px solid #E5E7EB",
+                    maxWidth: "95%",
+                }}
+            >
+                {/* HEADER */}
+                <div
+                    className="grid grid-cols-5 px-6"
+                    style={{
+                        height: 52,
+                        fontSize: 18,
+                        fontWeight: 600,
+                        color: "#1F2937",
+                        borderBottom: "1px solid #E5E7EB",
+                        alignItems: "center",
+                        marginLeft: 10,
+                        marginRight: 10,
+                    }}
+                >
+                    <span>User</span>
+                    <span>Amount</span>
+                    <span>TRX ID</span>
+                    <span>Status</span>
+                    <span className="text-right pr-6">Date</span>
+                </div>
+
+                {/* ROWS */}
+                {paginated.map((d) => (
+                    <div
+                        key={d.id}
+                        className="grid grid-cols-5 px-6"
+                        style={{
+                            height: 40,
+                            fontSize: 16,
+                            borderBottom: "1px solid #E5E7EB",
+                            alignItems: "center",
+                            color: "#1F2937",
+                            marginLeft: 10,
+                            marginRight: 10,
+                        }}
+                    >
+                        {/* USER */}
+                        <span className="truncate" style={{ maxWidth: 120 }}>
+                            {d.user?.username || "Unknown"}
+                        </span>
+
+                        {/* AMOUNT */}
+                        <span className="truncate">$ {d.amount}</span>
+
+                        {/* TRX + COPY */}
+                        <span
+                            className="truncate flex items-center gap-2"
+                            style={{ maxWidth: 160 }}
+                        >
+                            {d.trxId.slice(0, 6)}...
+                            <Copy
+                                size={16}
+                                className="cursor-pointer hover:text-blue-600"
+                                onClick={() => copyText(d.trxId)}
+                            />
+                        </span>
+
+                        {/* STATUS ICON */}
+                        <span className="flex justify-center">
+                            {statusIcon()}
+                        </span>
+
+                        {/* DATE */}
+                        <span
+                            className="text-right pr-6 truncate"
+                            title={new Date(d.createdAt).toLocaleString()}
+                        >
+                            {new Date(d.createdAt).toLocaleDateString()}
+                        </span>
+                    </div>
+                ))}
+            </div>
+
+            {/* PAGINATION */}
+            <div className="flex justify-between mt-4 px-2">
+                <button
+                    disabled={page === 1}
+                    onClick={() => setPage(page - 1)}
+                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40"
+                >
+                    Previous
+                </button>
+
+                <span className="font-medium text-gray-700">
+                    Page {page} / {totalPages}
+                </span>
+
+                <button
+                    disabled={page === totalPages}
+                    onClick={() => setPage(page + 1)}
+                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40"
+                >
+                    Next
+                </button>
+            </div>
         </div>
     );
 }

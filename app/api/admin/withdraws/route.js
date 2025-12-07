@@ -1,14 +1,15 @@
 import prisma from "@/lib/prisma";
 
 export async function GET() {
-    const withdraws = await prisma.withdraw.findMany({
-        orderBy: { id: "desc" },
-        include: {
-            user: {
-                select: { username: true, mobile: true }
-            }
-        }
-    });
+    try {
+        const withdraws = await prisma.withdraw.findMany({
+            where: { status: "pending" },
+            orderBy: { id: "desc" },
+            include: { user: true }
+        });
 
-    return Response.json(withdraws);
+        return new Response(JSON.stringify(withdraws));
+    } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    }
 }
