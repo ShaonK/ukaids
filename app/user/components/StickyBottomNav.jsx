@@ -10,31 +10,31 @@ export default function StickyBottomNav() {
   const items = [
     {
       key: "home",
-      path: "/user-dashboard",
+      path: "/user",
       icon: "/BottomHomeIcon.png",
       label: "Home",
     },
     {
       key: "intro",
-      path: "/user-dashboard/introduction",
+      path: "/user/introduction",
       icon: "/BottomntroductionIcon.png",
       label: "Introduction",
     },
     {
       key: "get",
-      path: "/user-dashboard/get",
+      path: "/user/get",
       icon: "/BottomGetIcon.png",
       label: "Get",
     },
     {
       key: "team",
-      path: "/user-dashboard/team",
+      path: "/user/team",
       icon: "/BottomTeamIcon.png",
       label: "Team",
     },
     {
       key: "mine",
-      path: "/user-dashboard/mine",
+      path: "/user/mine",
       icon: "/BottomProfileIcon.png",
       label: "Mine",
     },
