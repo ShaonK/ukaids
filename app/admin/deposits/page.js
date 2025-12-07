@@ -17,8 +17,9 @@ export default function AdminDepositsPage() {
 
     const PER_PAGE = 10;
 
+    // ✅ এখন শুধুই pending ডেটা লোড হবে
     async function loadDeposits() {
-        const res = await fetch("/api/admin/deposits");
+        const res = await fetch("/api/admin/deposits/pending");
         const data = await res.json();
         setDeposits(data);
     }
@@ -31,7 +32,7 @@ export default function AdminDepositsPage() {
         const data = await res.json();
         if (data.success) {
             setOpenMenu(null);
-            loadDeposits();
+            loadDeposits(); // reload only pending list
         }
     }
 
@@ -43,7 +44,7 @@ export default function AdminDepositsPage() {
         const data = await res.json();
         if (data.success) {
             setOpenMenu(null);
-            loadDeposits();
+            loadDeposits(); // reload only pending list
         }
     }
 
@@ -55,7 +56,6 @@ export default function AdminDepositsPage() {
                 setOpenMenu(null);
             }
         }
-
         document.addEventListener("mousedown", handleOutside);
         return () => document.removeEventListener("mousedown", handleOutside);
     }, []);
@@ -66,10 +66,8 @@ export default function AdminDepositsPage() {
 
     // Status Icon
     function renderStatusIcon(status) {
-        if (status === "approved")
-            return <CheckCircle size={20} color="#059669" strokeWidth={2.5} />;
-        if (status === "rejected")
-            return <XCircle size={20} color="#DC2626" strokeWidth={2.5} />;
+        if (status === "approved") return <CheckCircle size={20} color="#059669" strokeWidth={2.5} />;
+        if (status === "rejected") return <XCircle size={20} color="#DC2626" strokeWidth={2.5} />;
         return <Clock size={20} color="#D97706" strokeWidth={2.5} />;
     }
 
@@ -92,8 +90,8 @@ export default function AdminDepositsPage() {
         <div className="p-6">
 
             {/* PAGE TITLE */}
-            <h1 style={{ fontSize: "32px", fontWeight: 700, color: "#111827", marginLeft: "10px" }}>
-                Deposit Requests
+            <h1 style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginLeft: 10 }}>
+                Pending Deposit Requests
             </h1>
 
             {/* SEARCH BAR */}
@@ -122,14 +120,14 @@ export default function AdminDepositsPage() {
                 <div
                     className="grid grid-cols-5 px-6"
                     style={{
-                        height: "52px",
-                        fontSize: "18px",
+                        height: 52,
+                        fontSize: 18,
                         fontWeight: 600,
                         color: "#1F2937",
                         borderBottom: "1px solid #E5E7EB",
                         alignItems: "center",
-                        marginLeft: "10px",
-                        marginRight: "10px",
+                        marginLeft: 10,
+                        marginRight: 10,
                     }}
                 >
                     <span>User</span>
@@ -145,22 +143,22 @@ export default function AdminDepositsPage() {
                         key={d.id}
                         className="grid grid-cols-5 px-6 relative gap-2"
                         style={{
-                            height: "40px",
-                            fontSize: "16px",
+                            height: 40,
+                            fontSize: 16,
                             borderBottom: "1px solid #E5E7EB",
                             alignItems: "center",
                             color: "#1F2937",
-                            marginLeft: "10px",
-                            marginRight: "10px",
+                            marginLeft: 10,
+                            marginRight: 10,
                         }}
                     >
 
                         {/* USER */}
-                        <span className="truncate" style={{ maxWidth: "120px" }}>
+                        <span className="truncate" style={{ maxWidth: 120 }}>
                             {d.user.username}
                         </span>
 
-                        {/* AMOUNT (limit 4 chars + $ icon + click-to-copy alert) */}
+                        {/* AMOUNT */}
                         <span
                             className="truncate flex items-center gap-1 cursor-pointer hover:text-blue-600"
                             onClick={() => copyText(d.amount)}
@@ -173,12 +171,11 @@ export default function AdminDepositsPage() {
                             </span>
                         </span>
 
-                        {/* TRX ID (limit 5 chars + copy icon) */}
-                        <span className="truncate flex items-center gap-2" style={{ maxWidth: "160px" }}>
+                        {/* TRX ID */}
+                        <span className="truncate flex items-center gap-2" style={{ maxWidth: 160 }}>
                             {String(d.trxId).length > 5
                                 ? String(d.trxId).slice(0, 5) + "…"
                                 : d.trxId}
-
                             <Copy
                                 size={16}
                                 className="cursor-pointer hover:text-blue-600"
@@ -207,9 +204,9 @@ export default function AdminDepositsPage() {
                                         <div
                                             className="menu-dropdown absolute right-0 top-1/2 -translate-y-1/2 bg-white shadow-xl rounded-lg border"
                                             style={{
-                                                width: "140px",
+                                                width: 140,
                                                 zIndex: 50,
-                                                fontSize: "15px",
+                                                fontSize: 15,
                                             }}
                                         >
                                             <button
