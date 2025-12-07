@@ -3,53 +3,42 @@
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
+import { SignJWT } from "jose";
 
 export default async function loginAction(formData) {
     const username = formData.get("username");
     const password = formData.get("password");
     const captcha = formData.get("captcha");
 
-    console.log("FORM DATA USERNAME:", username);
-    console.log("FORM DATA PASSWORD:", password);
-
-    // Captcha Check
     if (!captcha || captcha !== "1234") {
         return { error: "Invalid Captcha!" };
     }
 
-    // Find User
     const user = await prisma.user.findUnique({
-        where: { username },
+        where: { username }
     });
 
-    if (!user) {
-        return { error: "User not found!" };
-    }
-
-    // DEBUG → Compare before checking ------------------------
-    console.log("INPUT PASSWORD:", password);
-    console.log("HASHED PASSWORD:", user.password);
+    if (!user) return { error: "User not found!" };
 
     const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return { error: "Wrong Password!" };
 
-    console.log("COMPARE RESULT:", isMatch);
-    //---------------------------------------------------------
-
-    if (!isMatch) {
-        return { error: "Wrong Password!" };
-    }
-
+    // BLOCK CHECK
     if (user.isBlocked) {
         return { error: "Account Blocked!" };
     }
 
-    // JWT Token Issue
-    const token = jwt.sign(
-        { id: user.id, username: user.username },
-        process.env.JWT_SECRET,
-        { expiresIn: "7d" }
-    );
+    // ⬇️ JWT CREATE (CORRECT WAY)
+    const SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
+
+    const token = await new SignJWT({
+        id: user.id,
+        username: user.username,
+        isBlocked: user.isBlocked,
+    })
+        .setProtectedHeader({ alg: "HS256" })
+        .setExpirationTime("7d")
+        .sign(SECRET);
 
     const cookieStore = await cookies();
     cookieStore.set("token", token, {
