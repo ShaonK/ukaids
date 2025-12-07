@@ -15,7 +15,7 @@ export default function RejectedDepositsPage() {
     async function loadData() {
         const res = await fetch("/api/admin/deposits/rejected");
         const data = await res.json();
-        setList(data || []);
+        setList(Array.isArray(data) ? data : []);
     }
 
     useEffect(() => {
@@ -28,15 +28,16 @@ export default function RejectedDepositsPage() {
         alert("Copied: " + text);
     }
 
-    // STATUS ICON (Always rejected)
+    // STATUS ICON
     function statusIcon() {
         return <XCircle size={20} color="#DC2626" strokeWidth={2.5} />;
     }
 
-    // DATE FILTER FUNCTION
+    // DATE FILTER
     function filterByDate(item) {
         const now = new Date();
         const created = new Date(item.createdAt);
+        const diff = now - created;
 
         if (filter === "today") {
             return (
@@ -45,19 +46,13 @@ export default function RejectedDepositsPage() {
                 created.getFullYear() === now.getFullYear()
             );
         }
-
-        if (filter === "7d") {
-            return now - created <= 7 * 24 * 60 * 60 * 1000;
-        }
-
-        if (filter === "30d") {
-            return now - created <= 30 * 24 * 60 * 60 * 1000;
-        }
+        if (filter === "7d") return diff <= 7 * 24 * 60 * 60 * 1000;
+        if (filter === "30d") return diff <= 30 * 24 * 60 * 60 * 1000;
 
         return true; // all
     }
 
-    // SEARCH + FILTER COMBINED
+    // SEARCH + FILTER
     const filtered = list
         .filter((item) => filterByDate(item))
         .filter((d) => {
@@ -74,16 +69,16 @@ export default function RejectedDepositsPage() {
 
     return (
         <div className="p-6">
-            <h1
-                className="mb-6"
-                style={{ fontSize: 32, fontWeight: 700, color: "#111827" }}>
+
+            {/* TITLE */}
+            <h1 className="mb-6" style={{ fontSize: 32, fontWeight: 700, color: "#111827" }}>
                 Rejected Deposits
             </h1>
 
-            {/* Search + Filter */}
+            {/* SEARCH + FILTER */}
             <div className="flex items-center justify-between mb-4 px-2">
 
-                {/* Search */}
+                {/* SEARCH */}
                 <input
                     type="text"
                     placeholder="Search user / trx id..."
@@ -92,7 +87,8 @@ export default function RejectedDepositsPage() {
                         setSearch(e.target.value);
                         setPage(1);
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg w-64 focus:ring focus:ring-blue-200 outline-none"
+                    className="px-4 py-2 border border-gray-300 rounded-lg w-64 
+                               focus:ring focus:ring-blue-200 outline-none"
                 />
 
                 {/* SELECT FILTER */}
@@ -161,15 +157,25 @@ export default function RejectedDepositsPage() {
                             {d.user?.username || "Unknown"}
                         </span>
 
-                        {/* AMOUNT */}
-                        <span className="truncate">$ {d.amount}</span>
-
-                        {/* TRX + COPY */}
+                        {/* AMOUNT (truncate + clickable) */}
                         <span
-                            className="truncate flex items-center gap-2"
-                            style={{ maxWidth: 160 }}
+                            className="truncate flex items-center gap-1 cursor-pointer hover:text-blue-600"
+                            onClick={() => copyText(d.amount)}
                         >
-                            {d.trxId.slice(0, 6)}...
+                            <span>$</span>
+                            <span>
+                                {String(d.amount).length > 4
+                                    ? String(d.amount).slice(0, 4) + "…"
+                                    : d.amount}
+                            </span>
+                        </span>
+
+                        {/* TRX ID (truncate + copy icon) */}
+                        <span className="truncate flex items-center gap-2" style={{ maxWidth: 160 }}>
+                            {String(d.trxId).length > 6
+                                ? String(d.trxId).slice(0, 6) + "…"
+                                : d.trxId}
+
                             <Copy
                                 size={16}
                                 className="cursor-pointer hover:text-blue-600"
@@ -177,7 +183,7 @@ export default function RejectedDepositsPage() {
                             />
                         </span>
 
-                        {/* STATUS ICON */}
+                        {/* STATUS ICON CENTERED */}
                         <span className="flex justify-center">
                             {statusIcon()}
                         </span>
