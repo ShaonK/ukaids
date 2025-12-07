@@ -1,19 +1,15 @@
+"use client";
 
-import UserHeader from "@/app/components/UserHeader";
-import "../globals.css";
-import BottomNav from "../components/BottomNav";
+import NavBar from "./components/NavBar";
+import StickyBottomNav from "./components/StickyBottomNav";
 
-export default function UserLayout({ children }) {
-    return (
-        <>
-        <div className="min-h-screen flex flex-col bg-gray-100">
-            <UserHeader />
-
-            <main className="flex-1 p-4 pb-24">
-                {children}
-                  <BottomNav />
-            </main>
-        </div>
-        </>
-    );
+export default function DashboardLayout({ children }) {
+  
+  return (
+    <div className="w-[360px] min-h-screen mx-auto bg-[#121212] text-white overflow-hidden pb-[110px]">
+      <NavBar />
+      {children}
+      <StickyBottomNav />
+    </div>
+  );
 }

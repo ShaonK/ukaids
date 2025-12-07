@@ -10,7 +10,7 @@ export default function RootLayout({ children }) {
       <body className="bg-gray-200 flex justify-center">
 
         {/* MOBILE FRAME */}
-        <div className="relative w-full max-w-[420px] min-h-screen bg-white shadow-lg overflow-x-hidden">
+        <div className="relative w-full max-w-[360px] min-h-screen bg-white shadow-lg overflow-x-hidden">
           {children}
         </div>
 

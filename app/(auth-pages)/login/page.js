@@ -26,7 +26,7 @@ export default function LoginPage() {
         if (res.error) {
             setMessage(res.error);
         } else {
-            router.push("/user/home");
+            router.push("/user");
         }
     }
 

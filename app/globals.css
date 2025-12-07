@@ -1,6 +1,14 @@
-@tailwind base;
-@tailwind components;
 @tailwind utilities;
+@import "tailwindcss";
+@layer utilities {
+  /* Corner gradient borders */
+  .border-gradient-tl { border-image: linear-gradient(180deg, #3B82F6 0%, #EC7B03 100%) 1; }
+  .border-gradient-tr { border-image: linear-gradient(180deg, #3B82F6 0%, #EC7B03 100%) 1; }
+  .border-gradient-bl { border-image: linear-gradient(180deg, #3B82F6 0%, #EC7B03 100%) 1; }
+  .border-gradient-br { border-image: linear-gradient(180deg, #3B82F6 0%, #EC7B03 100%) 1; }
+  /* Inner card gradient border */
+  .border-gradient-inner { border-image: linear-gradient(102.93deg, rgba(201, 119, 30, 0.7) 26.82%, rgba(59, 130, 246, 0.7) 82.57%) 1; }
+}
 
 
 
@@ -21,6 +29,13 @@
   --icon-size: 18px;
   --sidebar-padding: 24px;
   --menu-row-height: 25px;
+
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* Fonts */
+  --font-sans: 'Inter', Arial, Helvetica, sans-serif;
+  --font-mono: monospace;
 }
 /* Mobile View Design Centering for Desktop */
 body {
@@ -29,4 +44,33 @@ body {
 
 html {
   background: #f3f4f6;
+}
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+/* Reset default margins and box-sizing */
+html, body {
+  background: #000 !important;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+}
+
+
+/* Paragraph justification */
+p {
+  text-align: justify;
+  line-height: 1.5; /* readable line spacing */
+}
+
+/* Optional: link color */
+a {
+  color: var(--foreground);
+  text-decoration: none;
 }
