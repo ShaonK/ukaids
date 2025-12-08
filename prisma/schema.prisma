@@ -7,6 +7,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/**
+ * ---------------- USER ----------------
+ */
+
 model User {
   id           Int     @id @default(autoincrement())
   fullname     String
@@ -27,19 +31,22 @@ model User {
 
   createdAt DateTime @default(now())
 
-  deposits       Deposit[]
-  withdraws      Withdraw[]
-  wallet         Wallet?
-  depositHistory DepositHistory[]
-
-  // ⭐ Deposit Relations
-  approvedDeposits ApprovedDeposit[]
-  rejectedDeposits RejectedDeposit[]
-
-  // ⭐ Withdraw Relations
+  deposits          Deposit[]
+  withdraws         Withdraw[]
+  wallet            Wallet?
+  depositHistory    DepositHistory[]
+  approvedDeposits  ApprovedDeposit[]
+  rejectedDeposits  RejectedDeposit[]
   approvedWithdraws ApprovedWithdraw[]
   rejectedWithdraws RejectedWithdraw[]
+  roiEarnings       RoiEarning[]
+  roiHistory        RoiHistory[]
+  userDepositRois   UserDepositRoi[]
 }
+
+/**
+ * ---------------- WALLET ----------------
+ */
 
 model Wallet {
   id     Int  @id @default(autoincrement())
@@ -55,6 +62,10 @@ model Wallet {
   donationWallet Float @default(0)
 }
 
+/**
+ * ---------------- DEPOSIT ----------------
+ */
+
 model Deposit {
   id        Int      @id @default(autoincrement())
   userId    Int
@@ -64,8 +75,42 @@ model Deposit {
   status    String   @default("pending")
   createdAt DateTime @default(now())
 
-  history DepositHistory[]
+  history         DepositHistory[]
+  userDepositRois UserDepositRoi[]
+  roiEarnings     RoiEarning[]
 }
+
+/**
+ * ---------------- ADMIN PROCESS RECORDS ----------------
+ */
+
+model DepositHistory {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  depositId   Int
+  amount      Float
+  trxId       String
+  status      String
+  processedBy Int
+  createdAt   DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  deposit Deposit @relation(fields: [depositId], references: [id])
+  admin   Admin   @relation("AdminProcessRelation", fields: [processedBy], references: [id])
+}
+
+model Admin {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+
+  processed DepositHistory[] @relation("AdminProcessRelation")
+}
+
+/**
+ * ---------------- APPROVED / REJECTED ----------------
+ */
 
 model ApprovedDeposit {
   id        Int      @id @default(autoincrement())
@@ -117,28 +162,48 @@ model RejectedWithdraw {
   user User @relation(fields: [userId], references: [id])
 }
 
-model Admin {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique
-  password  String
-  createdAt DateTime @default(now())
+/**
+ * ---------------- ROI MODELS ----------------
+ */
 
-  processed DepositHistory[] @relation("AdminProcessRelation")
-}
-
-model DepositHistory {
+model UserDepositRoi {
   id          Int      @id @default(autoincrement())
   userId      Int
   depositId   Int
   amount      Float
-  trxId       String
-  status      String
-  processedBy Int
-  createdAt   DateTime @default(now())
+  roiPercent  Float    @default(2)
+  nextRoiTime DateTime
+  active      Boolean  @default(true)
 
   user    User    @relation(fields: [userId], references: [id])
   deposit Deposit @relation(fields: [depositId], references: [id])
-  admin   Admin   @relation("AdminProcessRelation", fields: [processedBy], references: [id])
 }
 
+model RoiHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  earningId Int
+  amount    Float
+  createdAt DateTime @default(now())
 
+  user    User       @relation(fields: [userId], references: [id])
+  earning RoiEarning @relation(fields: [earningId], references: [id])
+}
+
+model RoiEarning {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  depositId Int
+  amount    Float // ROI per cycle (2%)
+  createdAt DateTime @default(now())
+
+  nextRun     DateTime
+  totalEarned Float    @default(0)
+  maxEarnable Float  @default(0)   // ✅ FIXED default added
+  isActive    Boolean  @default(true)
+
+  user         User         @relation(fields: [userId], references: [id])
+  deposit      Deposit      @relation(fields: [depositId], references: [id])
+  @@map("roiearning")
+  roiHistories RoiHistory[]
+}

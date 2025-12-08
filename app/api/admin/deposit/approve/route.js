@@ -23,36 +23,25 @@ export async function POST(req) {
         const userId = deposit.userId;
         const amount = deposit.amount;
 
-        // --------------------------------------------------------
-        // 🔥 1) Check - Is this user's FIRST approved deposit?
-        // --------------------------------------------------------
-        const previousApproved = await prisma.approvedDeposit.findFirst({
-            where: { userId }
-        });
-
-        const isFirstDeposit = !previousApproved;
-
-        // --------------------------------------------------------
-        // 🔥 2) UPDATE deposit status
-        // --------------------------------------------------------
+        /* -----------------------------------------
+           1️⃣ Approve Deposit
+        -------------------------------------------- */
         await prisma.deposit.update({
             where: { id },
             data: { status: "approved" },
         });
 
-        // --------------------------------------------------------
-        // 🔥 3) Add deposit amount to USER main wallet
-        // --------------------------------------------------------
+        /* -----------------------------------------
+           2️⃣ Add to Main Wallet
+        -------------------------------------------- */
         await prisma.wallet.update({
             where: { userId },
-            data: {
-                mainWallet: { increment: amount },
-            },
+            data: { mainWallet: { increment: amount } },
         });
 
-        // --------------------------------------------------------
-        // 🔥 4) Add to depositHistory table
-        // --------------------------------------------------------
+        /* -----------------------------------------
+           3️⃣ Add History
+        -------------------------------------------- */
         await prisma.depositHistory.create({
             data: {
                 userId,
@@ -60,13 +49,13 @@ export async function POST(req) {
                 amount,
                 trxId: deposit.trxId,
                 status: "approved",
-                processedBy: 1, // TODO: admin ID
+                processedBy: 1,
             },
         });
 
-        // --------------------------------------------------------
-        // 🔥 5) Insert into approvedDeposit table
-        // --------------------------------------------------------
+        /* -----------------------------------------
+           4️⃣ Store ApprovedDeposit
+        -------------------------------------------- */
         await prisma.approvedDeposit.create({
             data: {
                 userId,
@@ -75,65 +64,56 @@ export async function POST(req) {
             },
         });
 
-        // --------------------------------------------------------
-        // 🔥 6) APPLY REFERRAL COMMISSION (ONLY FIRST DEPOSIT)
-        // --------------------------------------------------------
-        if (isFirstDeposit) {
-            let level1 = deposit.user.referredBy;
-            let level2 = null;
-            let level3 = null;
+        /* -----------------------------------------
+           ⭐ 5️⃣ Referral Commission (EVERY DEPOSIT)
+        -------------------------------------------- */
 
-            if (level1) {
-                const parent = await prisma.user.findUnique({
-                    where: { id: level1 }
-                });
+        // Level 1 → user's referrer
+        let level1 = deposit.user.referredBy;
+        let level2 = null;
+        let level3 = null;
 
-                if (parent?.referredBy) level2 = parent.referredBy;
-
-                if (level2) {
-                    const parent2 = await prisma.user.findUnique({
-                        where: { id: level2 }
-                    });
-
-                    if (parent2?.referredBy) level3 = parent2.referredBy;
-                }
-            }
-
-            // 🔹 Commission Amounts
-            const c1 = amount * 0.10; // 10%
-            const c2 = amount * 0.03; // 3%
-            const c3 = amount * 0.02; // 2%
-
-            // 🔹 LEVEL 1
-            if (level1) {
-                await prisma.wallet.update({
-                    where: { userId: level1 },
-                    data: {
-                        referralWallet: { increment: c1 },
-                    },
-                });
-            }
-
-            // 🔹 LEVEL 2
-            if (level2) {
-                await prisma.wallet.update({
-                    where: { userId: level2 },
-                    data: {
-                        referralWallet: { increment: c2 },
-                    },
-                });
-            }
-
-            // 🔹 LEVEL 3
-            if (level3) {
-                await prisma.wallet.update({
-                    where: { userId: level3 },
-                    data: {
-                        referralWallet: { increment: c3 },
-                    },
-                });
-            }
+        // Level 2
+        if (level1) {
+            const p1 = await prisma.user.findUnique({ where: { id: level1 } });
+            if (p1?.referredBy) level2 = p1.referredBy;
         }
+
+        // Level 3
+        if (level2) {
+            const p2 = await prisma.user.findUnique({ where: { id: level2 } });
+            if (p2?.referredBy) level3 = p2.referredBy;
+        }
+
+        // Commission %
+        const c1 = amount * 0.10;
+        const c2 = amount * 0.03;
+        const c3 = amount * 0.02;
+
+        if (level1) {
+            await prisma.wallet.update({
+                where: { userId: level1 },
+                data: { referralWallet: { increment: c1 } },
+            });
+        }
+
+        if (level2) {
+            await prisma.wallet.update({
+                where: { userId: level2 },
+                data: { referralWallet: { increment: c2 } },
+            });
+        }
+
+        if (level3) {
+            await prisma.wallet.update({
+                where: { userId: level3 },
+                data: { referralWallet: { increment: c3 } },
+            });
+        }
+
+        /* -----------------------------------------
+           DONE
+        -------------------------------------------- */
 
         return Response.json({ success: true });
 
