@@ -126,7 +126,7 @@ export default function IntroductionPage() {
       title: "Corporate Partners",
       items: [
         {
-          position: "BBH",
+          position: "ukaids",
           description:
             "Pay a deposit of 5,520,000 BDT, 400 tasks per day, earn 600 BDT per task, earn 240,000 BDT per day, earn 7,200,000 BDT in 30 days, and earn 86,400,000 BDT in 360 days.",
         },
@@ -189,7 +189,7 @@ export default function IntroductionPage() {
       level2Reward: "82800",
     },
     {
-      level: "BBH",
+      level: "ukaids",
       level3Invite: "10%→3%→1%",
       firstLevelReward: "552000",
       level2Reward: "165600",

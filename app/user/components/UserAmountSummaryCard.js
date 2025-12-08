@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 
-export default function UserAmountSummaryCard() {
+export default function UserAmountSummaryCard({ title, amount }) {
   return (
     <div className="w-full flex justify-center mt-4 ml-5">
       {/* RECTANGLE (slightly smaller for perfect centering) */}
@@ -21,7 +21,7 @@ export default function UserAmountSummaryCard() {
         >
           <div className="w-full h-full rounded-full bg-[#121212] flex justify-center items-center px-2 text-center">
             <span className="text-[16px] font-semibold text-white leading-tight">
-              Account Balance
+              {title}
             </span>
           </div>
         </div>
@@ -35,7 +35,7 @@ export default function UserAmountSummaryCard() {
         "
         >
           <span className="text-[20px] font-bold text-black tracking-[0.5%]">
-            25.00 USD
+           {amount}
           </span>
         </div>
 

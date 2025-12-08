@@ -23,7 +23,7 @@ export default function Home() {
           className="object-contain"
         />
 
-        <Link href="/login">
+        <Link href="\login">
           <span className="px-4 py-2 text-white text-sm font-medium rounded-md hover:bg-blue-700">
             Log in
           </span>
@@ -56,7 +56,7 @@ export default function Home() {
 
           {/* Get Started Button */}
           <div className="w-full flex justify-end pr-4 mt-2">
-            <Link href="/Signup">
+            <Link href="\register">
               <span className="bg-blue-600 text-white px-5 py-2 rounded-md text-sm font-medium shadow-lg active:scale-95 transition">
                 Get Started
               </span>

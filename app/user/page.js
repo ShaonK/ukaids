@@ -14,12 +14,10 @@ export default function DashboardPage() {
   return (
     <>
       <div>
-        {/* Navigation */}
-       
 
-        {/* Wrapper for BG + Cards */}
         <div className="relative mx-auto w-[360px] min-h-screen bg-[#121212]">
-          {/* ==== Background Image Behind Cards ==== */}
+
+          {/* BG IMAGE */}
           <div className="absolute inset-0 w-[360px] h-[350px] rounded-[8px] overflow-hidden z-0">
             <Image
               src="/user-d-hero-bg.png"
@@ -28,22 +26,23 @@ export default function DashboardPage() {
               className="object-cover rounded-[8px]"
               priority
             />
-            {/* Opacity Layer */}
             <div className="absolute inset-0 bg-[#000000CC] rounded-[8px]"></div>
           </div>
 
-          {/* ==== All Cards (on top of BG image) ==== */}
+          {/* SUMMARY CARDS */}
           <div className="relative z-10 pt-3 space-y-4">
             <UserAmountSummaryCard title="Account Balance" amount="25.00 USD" />
-            <UserAmountSummaryCard title="Account Balance" amount="25.00 USD" />
-            <UserAmountSummaryCard title="Account Balance" amount="25.00 USD" />
-            <UserAmountSummaryCard title="Account Balance" amount="25.00 USD" />
+            <UserAmountSummaryCard title="Income Balance" amount="25.00 USD" />
+            <UserAmountSummaryCard title="refarral Balance" amount="12.00 USD" />
+            <UserAmountSummaryCard title="Total Earned" amount="100.00 USD" />
           </div>
+
           <SpeakerMessage />
           <QuickActions />
           <InviteButton />
           <IncomeOptions />
           <FeatherImage />
+
           <TaskCard
             tag="A1"
             icon="/tcardimage.png"
@@ -51,13 +50,15 @@ export default function DashboardPage() {
             tasks="Daily Tasks : 01"
             deposit="Deposit : 25.00$"
           />
-           <TaskCard
+
+          <TaskCard
             tag="A2"
             icon="/tcardimage.png"
             order="16.00 / Each Order"
             tasks="Daily Tasks : 02"
             deposit="Deposit : 75.00$"
           />
+
           <TaskCard
             tag="A3"
             icon="/tcardimage.png"
