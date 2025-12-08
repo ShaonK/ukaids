@@ -15,7 +15,7 @@ export default async function loginAction(formData) {
     }
 
     const user = await prisma.user.findUnique({
-        where: { username }
+        where: { username },
     });
 
     if (!user) return { error: "User not found!" };
@@ -23,12 +23,8 @@ export default async function loginAction(formData) {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return { error: "Wrong Password!" };
 
-    // BLOCK CHECK
-    if (user.isBlocked) {
-        return { error: "Account Blocked!" };
-    }
+    if (user.isBlocked) return { error: "Account Blocked!" };
 
-    // ⬇️ JWT CREATE (CORRECT WAY)
     const SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
     const token = await new SignJWT({
@@ -40,9 +36,11 @@ export default async function loginAction(formData) {
         .setExpirationTime("7d")
         .sign(SECRET);
 
+    // ✔ Correct Cookie Settings
     const cookieStore = await cookies();
     cookieStore.set("token", token, {
-        httpOnly: true,
+        httpOnly: false,      // CLIENT থেকে পড়তে হবে → httpOnly=false দরকার
+        sameSite: "lax",
         secure: false,
         path: "/",
         maxAge: 7 * 24 * 60 * 60,

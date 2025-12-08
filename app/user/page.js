@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import DashboardCard from "./components/DashboardCard";
 import FeatherImage from "./components/FeatherImage";
 import IncomeOptions from "./components/IncomeOptions";
@@ -11,12 +12,62 @@ import UserAmountSummaryCard from "./components/UserAmountSummaryCard";
 import Image from "next/image";
 
 export default function DashboardPage() {
+  const [wallet, setWallet] = useState({
+    mainWallet: 0,
+    roiWallet: 0,
+    referralWallet: 0,
+    levelWallet: 0,
+    returnWallet: 0,
+    salaryWallet: 0,
+    donationWallet: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadWallet() {
+      try {
+        const res = await fetch("/api/user/wallet");
+        if (!res.ok) {
+          // fallback: keep defaults
+          setLoading(false);
+          return;
+        }
+        const data = await res.json();
+        if (mounted) {
+          // Expect structure: { wallet: { mainWallet, roiWallet, referralWallet, ... } }
+          setWallet({
+            mainWallet: data?.wallet?.mainWallet ?? 0,
+            roiWallet: data?.wallet?.roiWallet ?? 0,
+            referralWallet: data?.wallet?.referralWallet ?? 0,
+            levelWallet: data?.wallet?.levelWallet ?? 0,
+            returnWallet: data?.wallet?.returnWallet ?? 0,
+            salaryWallet: data?.wallet?.salaryWallet ?? 0,
+            donationWallet: data?.wallet?.donationWallet ?? 0,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch wallet:", err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    loadWallet();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Format numbers to 2 decimal places + currency label
+  const fmt = (n) => {
+    if (typeof n !== "number") n = Number(n) || 0;
+    return n.toFixed(2) + " USD";
+  };
+
   return (
     <>
       <div>
-
         <div className="relative mx-auto w-[360px] min-h-screen bg-[#121212]">
-
           {/* BG IMAGE */}
           <div className="absolute inset-0 w-[360px] h-[350px] rounded-[8px] overflow-hidden z-0">
             <Image
@@ -31,10 +82,27 @@ export default function DashboardPage() {
 
           {/* SUMMARY CARDS */}
           <div className="relative z-10 pt-3 space-y-4">
-            <UserAmountSummaryCard title="Account Balance" amount="25.00 USD" />
-            <UserAmountSummaryCard title="Income Balance" amount="25.00 USD" />
-            <UserAmountSummaryCard title="refarral Balance" amount="12.00 USD" />
-            <UserAmountSummaryCard title="Total Earned" amount="100.00 USD" />
+            <UserAmountSummaryCard
+              title="Account Balance"
+              amount={fmt(wallet.mainWallet)}
+            />
+            <UserAmountSummaryCard
+              title="Income Balance"
+              amount={fmt(wallet.roiWallet)}
+            />
+            <UserAmountSummaryCard
+              title="Referral Balance"
+              amount={fmt(wallet.referralWallet)}
+            />
+            <UserAmountSummaryCard
+              title="Total Earned"
+              amount={fmt(
+                (wallet.roiWallet || 0) +
+                (wallet.referralWallet || 0) +
+                (wallet.returnWallet || 0) +
+                (wallet.salaryWallet || 0)
+              )}
+            />
           </div>
 
           <SpeakerMessage />

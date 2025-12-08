@@ -140,3 +140,5 @@ model DepositHistory {
   deposit Deposit @relation(fields: [depositId], references: [id])
   admin   Admin   @relation("AdminProcessRelation", fields: [processedBy], references: [id])
 }
+
+

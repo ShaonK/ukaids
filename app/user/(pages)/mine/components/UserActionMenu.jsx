@@ -1,19 +1,25 @@
 "use client";
 
+import { logoutAction } from "@/app/(auth-pages)/logout/action";
+import { useRouter } from "next/navigation";
+
 export default function UserActionMenu() {
+  const router = useRouter();
+
   const items = [
-    { title: "Personal Information", icon: "/icons/personal.png" },
-    { title: "Message", icon: "/icons/message.png" },
-    { title: "Withdrawal", icon: "/icons/withdraw.png" },
-    { title: "Recharge", icon: "/icons/recharge.png" },
+    { title: "Personal Information", icon: "/icons/personal.png", path: "/user/profile" },
+    { title: "Message", icon: "/icons/message.png", path: "/user/messages" },
+    { title: "Withdrawal", icon: "/icons/withdraw.png", path: "/user/withdraw" },
+    { title: "Recharge", icon: "/icons/recharge.png", path: "/user/mine/recharge" },
 
-    { title: "Withdrawal Records", icon: "/icons/withdraw-record.png" },
-    { title: "Recharge Records", icon: "/icons/recharge-record.png" },
-    { title: "Wallet Changes", icon: "/icons/wallet-change.png" },
-    { title: "Invite", icon: "/icons/invite.png" },
+    { title: "Withdrawal Records", icon: "/icons/withdraw-record.png", path: "/user/withdraw-records" },
+    { title: "Recharge Records", icon: "/icons/recharge-record.png", path: "/user/recharge-records" },
+    { title: "Wallet Changes", icon: "/icons/wallet-change.png", path: "/user/wallet-changes" },
+    { title: "Invite", icon: "/icons/invite.png", path: "/user/invite" },
 
-    { title: "About Us", icon: "/icons/about.png" },
-    { title: "Log out", icon: "/icons/logout.png" },
+    { title: "About Us", icon: "/icons/about.png", path: "/about" },
+    { title: "Log out", icon: "/icons/logout.png", action: "logout" },
+    { title: "Wallet History", icon: "/icons/wallet-change.png", path: "/user/wallet-changes" },
   ];
 
   // Ripple Click Effect Function
@@ -34,6 +40,22 @@ export default function UserActionMenu() {
     setTimeout(() => ripple.remove(), 600);
   };
 
+  // ACTION HANDLER
+  const handleItemClick = async (item) => {
+    if (item.action === "logout") {
+      const res = await logoutAction();
+      if (res?.success) {
+        router.push("/login");
+      }
+      return;
+    }
+
+    // 👉 Redirect user to selected path
+    if (item.path) {
+      router.push(item.path);
+    }
+  };
+
   return (
     <div className="w-full mt-6 px-4">
       <style>
@@ -46,14 +68,12 @@ export default function UserActionMenu() {
           animation: ripple-effect 0.6s linear;
           pointer-events: none;
         }
-
         @keyframes ripple-effect {
           to {
             transform: scale(4);
             opacity: 0;
           }
         }
-
         @keyframes bounce-icon {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-4px); }
@@ -62,11 +82,13 @@ export default function UserActionMenu() {
       </style>
 
       <div className="grid grid-cols-4 gap-4">
-
         {items.map((item, index) => (
           <div
             key={index}
-            onClick={createRipple}
+            onClick={(e) => {
+              createRipple(e);
+              handleItemClick(item);
+            }}
             className="
               relative
               flex flex-col items-center cursor-pointer
@@ -109,7 +131,6 @@ export default function UserActionMenu() {
             </span>
           </div>
         ))}
-
       </div>
     </div>
   );

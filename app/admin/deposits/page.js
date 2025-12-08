@@ -28,7 +28,6 @@ export default function AdminDepositsPage() {
             method: "POST",
             body: JSON.stringify({ id }),
         });
-
         const data = await res.json();
         if (data.success) {
             setOpenMenu(null);
@@ -41,7 +40,6 @@ export default function AdminDepositsPage() {
             method: "POST",
             body: JSON.stringify({ id }),
         });
-
         const data = await res.json();
         if (data.success) {
             setOpenMenu(null);
@@ -51,13 +49,10 @@ export default function AdminDepositsPage() {
 
     useEffect(() => {
         function closeMenu(e) {
-            if (!e.target.closest(".menu-dropdown") &&
-                !e.target.closest(".menu-button")
-            ) {
+            if (!e.target.closest(".menu-button") && !e.target.closest(".action-menu")) {
                 setOpenMenu(null);
             }
         }
-
         document.addEventListener("mousedown", closeMenu);
         return () => document.removeEventListener("mousedown", closeMenu);
     }, []);
@@ -65,19 +60,6 @@ export default function AdminDepositsPage() {
     useEffect(() => {
         loadDeposits();
     }, []);
-
-    function renderStatusIcon(status) {
-        if (status === "approved")
-            return <CheckCircle size={20} color="#059669" strokeWidth={2.5} />;
-        if (status === "rejected")
-            return <XCircle size={20} color="#DC2626" strokeWidth={2.5} />;
-        return <Clock size={20} color="#D97706" strokeWidth={2.5} />;
-    }
-
-    function copyText(text) {
-        navigator.clipboard.writeText(text);
-        alert("Copied: " + text);
-    }
 
     const filtered = deposits.filter((d) =>
         d.user.username.toLowerCase().includes(search.toLowerCase()) ||
@@ -87,61 +69,56 @@ export default function AdminDepositsPage() {
     const totalPages = Math.ceil(filtered.length / PER_PAGE);
     const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
+    function renderStatusIcon(status) {
+        if (status === "approved")
+            return <CheckCircle size={20} color="#059669" />;
+        if (status === "rejected")
+            return <XCircle size={20} color="#DC2626" />;
+        return <Clock size={20} color="#D97706" />;
+    }
+
+    function copyText(text) {
+        navigator.clipboard.writeText(text);
+        alert("Copied: " + text);
+    }
+
     return (
-        <div className="p-6">
+        <div className="p-4">
 
-            {/* PAGE TITLE */}
-            <h1 className="text-2xl font-bold text-[#111827] mb-4">
-                Pending Deposits
-            </h1>
+            <h1 className="text-xl font-bold mb-4">Pending Deposits</h1>
 
-            {/* SEARCH BAR */}
-            <div className="mb-4">
-                <input
-                    type="text"
-                    placeholder="Search user / trx id..."
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg w-full text-sm
-                               focus:ring focus:ring-blue-200 outline-none"
-                />
-            </div>
+            <input
+                type="text"
+                placeholder="Search user / trx id..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                className="px-3 py-2 border rounded-lg w-full mb-4 text-sm"
+            />
 
-            {/* TABLE */}
-            <div
-                className="rounded-xl overflow-hidden mx-auto"
-                style={{
-                    background: "#FFFFFF",
-                    border: "1px solid #E5E7EB",
-                    maxWidth: "100%",
-                }}
-            >
+            <div className="rounded-xl overflow-hidden border bg-white">
 
-                {/* HEADER */}
+                {/* Header */}
                 <div
-                    className="grid px-4 py-2 border-b"
+                    className="grid px-3 py-2 border-b bg-gray-50 font-semibold text-gray-800"
                     style={{
-                        gridTemplateColumns: "1.2fr 1fr 1fr 0.6fr 0.8fr",
+                        gridTemplateColumns: "1.2fr 1fr 1fr 0.6fr 0.5fr",
                         fontSize: "14px",
-                        fontWeight: 700,
-                        color: "#1F2937",
                     }}
                 >
                     <span>User</span>
-                    <span>Amt</span>
+                    <span>Amount</span>
                     <span>TRX</span>
                     <span>Status</span>
-                    <span className="text-right">Act</span>
+                    <span className="text-center">Act</span>
                 </div>
 
-                {/* ROWS */}
+                {/* Rows */}
                 {paginated.map((d) => (
                     <div
                         key={d.id}
-                        className="grid px-4 py-2 border-b text-sm"
+                        className="grid px-3 py-2 border-b text-sm items-center"
                         style={{
-                            gridTemplateColumns: "1.2fr 1fr 1fr 0.6fr 0.8fr",
-                            alignItems: "center",
+                            gridTemplateColumns: "1.2fr 1fr 1fr 0.6fr 0.5fr",
                         }}
                     >
                         {/* USER */}
@@ -149,22 +126,20 @@ export default function AdminDepositsPage() {
 
                         {/* AMOUNT */}
                         <span
-                            className="truncate flex items-center gap-1 cursor-pointer"
+                            className="truncate cursor-pointer"
                             onClick={() => copyText(d.amount)}
                         >
-                            ${String(d.amount).slice(0, 5)}
-                            {String(d.amount).length > 5 ? "…" : ""}
+                            ${d.amount}
                         </span>
 
-                        {/* TRX */}
-                        <span className="truncate flex items-center gap-1">
+                        {/* TRX COPY */}
+                        <span
+                            className="truncate flex items-center gap-1 cursor-pointer"
+                            onClick={() => copyText(d.trxId)}
+                        >
                             {String(d.trxId).slice(0, 6)}
                             {String(d.trxId).length > 6 ? "…" : ""}
-                            <Copy
-                                size={16}
-                                className="cursor-pointer"
-                                onClick={() => copyText(d.trxId)}
-                            />
+                            <Copy size={16} />
                         </span>
 
                         {/* STATUS */}
@@ -172,66 +147,61 @@ export default function AdminDepositsPage() {
                             {renderStatusIcon(d.status)}
                         </span>
 
-                        {/* ACTION MENU */}
-                        <div className="relative flex justify-end">
-
+                        {/* ACTION */}
+                        <div className="relative flex justify-center">
                             {d.status === "pending" && (
                                 <>
+                                    {/* Three-dot Button */}
                                     <button
+                                        className="menu-button w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200"
                                         onClick={() =>
                                             setOpenMenu(openMenu === d.id ? null : d.id)
                                         }
-                                        className="menu-button w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200"
                                     >
-                                        <MoreVertical size={20} />
+                                        <MoreVertical size={18} />
                                     </button>
 
+                                    {/* Dropdown Menu — now inside row center */}
                                     {openMenu === d.id && (
                                         <div
-                                            className="menu-dropdown absolute right-0 top-0 bg-white shadow-xl rounded-lg border"
-                                            style={{ width: 130, zIndex: 50 }}
+                                            className="action-menu absolute top-1/2 left-1/2 -translate-x-1/2 
+                                            -translate-y-1/2 bg-white shadow-md rounded-lg border p-2 flex gap-4 z-50"
                                         >
-                                            <button
+                                            <CheckCircle
+                                                size={24}
+                                                className="text-green-600 cursor-pointer"
                                                 onClick={() => approve(d.id)}
-                                                className="w-full text-left px-4 py-2 hover:bg-gray-100 text-green-600"
-                                            >
-                                                Approve
-                                            </button>
-
-                                            <button
+                                            />
+                                            <XCircle
+                                                size={24}
+                                                className="text-red-600 cursor-pointer"
                                                 onClick={() => reject(d.id)}
-                                                className="w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600"
-                                            >
-                                                Reject
-                                            </button>
+                                            />
                                         </div>
                                     )}
                                 </>
                             )}
-
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* PAGINATION */}
-            <div className="flex justify-between mt-4 text-sm">
+            {/* Pagination */}
+            <div className="flex justify-between items-center mt-3 text-sm">
                 <button
                     disabled={page === 1}
                     onClick={() => setPage(page - 1)}
-                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40"
+                    className="px-3 py-2 bg-gray-200 rounded disabled:opacity-40"
                 >
-                    Previous
+                    Prev
                 </button>
 
-                <span className="font-medium text-gray-700">
-                    Page {page} / {totalPages}
-                </span>
+                <span>Page {page} / {totalPages}</span>
 
                 <button
                     disabled={page === totalPages}
                     onClick={() => setPage(page + 1)}
-                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40"
+                    className="px-3 py-2 bg-gray-200 rounded disabled:opacity-40"
                 >
                     Next
                 </button>
