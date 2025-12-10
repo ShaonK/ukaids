@@ -1,3 +1,4 @@
+// app/api/user/task/status/route.js
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 
@@ -6,30 +7,36 @@ export async function GET() {
     const user = await getUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    const earning = await prisma.roiearning.findFirst({
+    // find the latest active earning for this user
+    const earning = await prisma.roiEarning.findFirst({
       where: { userId: user.id, isActive: true },
-      orderBy: { id: "desc" }
+      orderBy: { createdAt: "desc" },
     });
 
-    if (!earning)
-      return Response.json({ success: true, hasEarning: false });
+    if (!earning) {
+      return Response.json({
+        success: true,
+        hasEarning: false,
+        message: "No active ROI earning found",
+      });
+    }
 
     const now = new Date();
-    const ready = earning.nextRun <= now;
+    const isReady = earning.nextRun <= now;
 
     return Response.json({
       success: true,
       hasEarning: true,
       earning: {
         id: earning.id,
-        amount: earning.amount,
+        amount: Number(earning.amount),
         nextRun: earning.nextRun,
-        totalEarned: earning.totalEarned,
-        maxEarnable: earning.maxEarnable,
-        isReady: ready
-      }
+        totalEarned: Number(earning.totalEarned),
+        maxEarnable: Number(earning.maxEarnable),
+        isActive: earning.isActive,
+        isReady,
+      },
     });
-
   } catch (err) {
     console.error("TASK STATUS ERROR:", err);
     return Response.json({ error: "Server error" }, { status: 500 });
