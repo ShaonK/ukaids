@@ -39,9 +39,11 @@ model User {
   rejectedDeposits  RejectedDeposit[]
   approvedWithdraws ApprovedWithdraw[]
   rejectedWithdraws RejectedWithdraw[]
-  roiEarnings       RoiEarning[]
-  roiHistory        RoiHistory[]
-  userDepositRois   UserDepositRoi[]
+
+  // ROI
+  roiEarnings     RoiEarning[]
+  roiHistory      RoiHistory[]
+  userDepositRois UserDepositRoi[]
 }
 
 /**
@@ -81,7 +83,7 @@ model Deposit {
 }
 
 /**
- * ---------------- ADMIN PROCESS RECORDS ----------------
+ * ---------------- ADMIN PROCESS ----------------
  */
 
 model DepositHistory {
@@ -131,6 +133,10 @@ model RejectedDeposit {
 
   user User @relation(fields: [userId], references: [id])
 }
+
+/**
+ * ---------------- WITHDRAW ----------------
+ */
 
 model Withdraw {
   id         Int      @id @default(autoincrement())
@@ -194,16 +200,18 @@ model RoiEarning {
   id        Int      @id @default(autoincrement())
   userId    Int
   depositId Int
-  amount    Float // ROI per cycle (2%)
+  amount    Float
   createdAt DateTime @default(now())
 
   nextRun     DateTime
   totalEarned Float    @default(0)
-  maxEarnable Float  @default(0)   // ✅ FIXED default added
+  maxEarnable Float    @default(0)
   isActive    Boolean  @default(true)
 
-  user         User         @relation(fields: [userId], references: [id])
-  deposit      Deposit      @relation(fields: [depositId], references: [id])
-  @@map("roiearning")
+  user    User    @relation(fields: [userId], references: [id])
+  deposit Deposit @relation(fields: [depositId], references: [id])
+
   roiHistories RoiHistory[]
+
+  @@map("roiearning")
 }
