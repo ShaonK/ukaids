@@ -7,9 +7,9 @@ export async function GET() {
     const user = await getUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    // find the latest active earning for this user
+    // Latest earning even if inactive
     const earning = await prisma.roiEarning.findFirst({
-      where: { userId: user.id, isActive: true },
+      where: { userId: user.id },
       orderBy: { createdAt: "desc" },
     });
 
@@ -17,12 +17,12 @@ export async function GET() {
       return Response.json({
         success: true,
         hasEarning: false,
-        message: "No active ROI earning found",
+        isReady: false,
       });
     }
 
     const now = new Date();
-    const isReady = earning.nextRun <= now;
+    const isReady = earning.isActive && earning.nextRun <= now;
 
     return Response.json({
       success: true,
