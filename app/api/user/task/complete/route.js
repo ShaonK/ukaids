@@ -58,7 +58,7 @@ export async function POST() {
     // Distribute level income based on this payout (same percents)
     // SKIP inactive/blocked/suspended parents and continue upward until 6 eligible levels found
     // -------------------------
-    async function distributeLevelIncomeSkipInactive(fromUserId, baseAmount, depositId) {
+    async function distributeLevelIncomeSkipInactive(fromUserId, baseAmount) {
       const levelPercents = [0.05, 0.04, 0.04, 0.03, 0.02, 0.01];
       let levelIndex = 0;
       let currentUserId = fromUserId;
@@ -77,10 +77,10 @@ export async function POST() {
           select: { id: true, isActive: true, isBlocked: true, isSuspended: true },
         });
 
-        // move pointer up regardless
+        // always move pointer up
         currentUserId = parentId;
 
-        // skip if parent not eligible
+        // skip if parent not eligible (do not increment levelIndex)
         if (!parent || !parent.isActive || parent.isBlocked || parent.isSuspended) {
           continue;
         }
@@ -88,19 +88,27 @@ export async function POST() {
         const percent = levelPercents[levelIndex];
         const commission = Number((baseAmount * percent).toFixed(6));
         if (commission > 0) {
-          await prisma.wallet.update({
-            where: { userId: parentId },
-            data: { levelWallet: { increment: commission } },
-          });
+          try {
+            await prisma.wallet.update({
+              where: { userId: parentId },
+              data: { levelWallet: { increment: commission } },
+            });
+          } catch (err) {
+            console.error("LEVEL WALLET UPDATE ERROR:", err);
+          }
 
-          await prisma.roiLevelIncome.create({
-            data: {
-              userId: parentId,
-              fromUserId: fromUserId,
-              level: levelIndex + 1,
-              amount: commission,
-            },
-          });
+          try {
+            await prisma.roiLevelIncome.create({
+              data: {
+                userId: parentId,
+                fromUserId: fromUserId,
+                level: levelIndex + 1,
+                amount: commission,
+              },
+            });
+          } catch (err) {
+            console.error("ROI LEVEL INCOME CREATE ERROR:", err);
+          }
         }
 
         levelIndex++;
@@ -108,7 +116,7 @@ export async function POST() {
     }
 
     // call distribution for this payout
-    await distributeLevelIncomeSkipInactive(user.id, payout, earning.depositId);
+    await distributeLevelIncomeSkipInactive(user.id, payout);
 
     return Response.json({
       success: true,
