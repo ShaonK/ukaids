@@ -43,21 +43,20 @@ export async function POST() {
     const updatedTotal = prevTotal + payout;
     const reachedCap = updatedTotal >= maxAllowed;
 
+    const newNextRun = reachedCap
+      ? earning.nextRun
+      : new Date(Date.now() + 1 * 60 * 1000); // TEST: +1 minute
+
     await prisma.roiEarning.update({
       where: { id: earning.id },
       data: {
         totalEarned: updatedTotal,
         isActive: !reachedCap,
-        nextRun: reachedCap
-          ? earning.nextRun
-          : new Date(Date.now() + 1 * 60 * 1000),
+        nextRun: newNextRun,
       },
     });
 
-    // -------------------------
-    // Distribute level income based on this payout (same percents)
-    // SKIP inactive/blocked/suspended parents and continue upward until 6 eligible levels found
-    // -------------------------
+    // Distribute level income (same as before)
     async function distributeLevelIncomeSkipInactive(fromUserId, baseAmount) {
       const levelPercents = [0.05, 0.04, 0.04, 0.03, 0.02, 0.01];
       let levelIndex = 0;
@@ -77,49 +76,49 @@ export async function POST() {
           select: { id: true, isActive: true, isBlocked: true, isSuspended: true },
         });
 
-        // always move pointer up
         currentUserId = parentId;
 
-        // skip if parent not eligible (do not increment levelIndex)
         if (!parent || !parent.isActive || parent.isBlocked || parent.isSuspended) {
           continue;
         }
 
         const percent = levelPercents[levelIndex];
         const commission = Number((baseAmount * percent).toFixed(6));
-        if (commission > 0) {
-          try {
-            await prisma.wallet.update({
-              where: { userId: parentId },
-              data: { levelWallet: { increment: commission } },
-            });
-          } catch (err) {
-            console.error("LEVEL WALLET UPDATE ERROR:", err);
-          }
 
-          try {
-            await prisma.roiLevelIncome.create({
-              data: {
-                userId: parentId,
-                fromUserId: fromUserId,
-                level: levelIndex + 1,
-                amount: commission,
-              },
-            });
-          } catch (err) {
-            console.error("ROI LEVEL INCOME CREATE ERROR:", err);
-          }
+        try {
+          await prisma.wallet.update({
+            where: { userId: parentId },
+            data: { levelWallet: { increment: commission } },
+          });
+        } catch (err) {
+          console.error("LEVEL WALLET UPDATE ERROR:", err);
+        }
+
+        try {
+          await prisma.roiLevelIncome.create({
+            data: {
+              userId: parentId,
+              fromUserId,
+              level: levelIndex + 1,
+              amount: commission,
+            },
+          });
+        } catch (err) {
+          console.error("ROI LEVEL INCOME CREATE ERROR:", err);
         }
 
         levelIndex++;
       }
     }
 
-    // call distribution for this payout
     await distributeLevelIncomeSkipInactive(user.id, payout);
 
+    // Return success + nextRun info so client can update countdown immediately if desired
     return Response.json({
       success: true,
+      payout,
+      nextRun: newNextRun,
+      reachedCap,
     });
   } catch (err) {
     console.error("TASK COMPLETE ERROR:", err);

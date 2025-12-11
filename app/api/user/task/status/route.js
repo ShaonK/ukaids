@@ -22,7 +22,7 @@ export async function GET() {
     }
 
     const now = new Date();
-    const isReady = earning.isActive && earning.nextRun <= now;
+    const isReady = Boolean(earning.isActive && earning.nextRun <= now);
 
     return Response.json({
       success: true,
@@ -33,7 +33,7 @@ export async function GET() {
         nextRun: earning.nextRun,
         totalEarned: Number(earning.totalEarned),
         maxEarnable: Number(earning.maxEarnable),
-        isActive: earning.isActive,
+        isActive: !!earning.isActive,
         isReady,
       },
     });
