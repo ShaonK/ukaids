@@ -54,6 +54,62 @@ export async function POST() {
       },
     });
 
+    // -------------------------
+    // Distribute level income based on this payout (same percents)
+    // SKIP inactive/blocked/suspended parents and continue upward until 6 eligible levels found
+    // -------------------------
+    async function distributeLevelIncomeSkipInactive(fromUserId, baseAmount, depositId) {
+      const levelPercents = [0.05, 0.04, 0.04, 0.03, 0.02, 0.01];
+      let levelIndex = 0;
+      let currentUserId = fromUserId;
+
+      while (levelIndex < levelPercents.length) {
+        const child = await prisma.user.findUnique({
+          where: { id: currentUserId },
+          select: { referredBy: true },
+        });
+
+        const parentId = child?.referredBy ?? null;
+        if (!parentId) break;
+
+        const parent = await prisma.user.findUnique({
+          where: { id: parentId },
+          select: { id: true, isActive: true, isBlocked: true, isSuspended: true },
+        });
+
+        // move pointer up regardless
+        currentUserId = parentId;
+
+        // skip if parent not eligible
+        if (!parent || !parent.isActive || parent.isBlocked || parent.isSuspended) {
+          continue;
+        }
+
+        const percent = levelPercents[levelIndex];
+        const commission = Number((baseAmount * percent).toFixed(6));
+        if (commission > 0) {
+          await prisma.wallet.update({
+            where: { userId: parentId },
+            data: { levelWallet: { increment: commission } },
+          });
+
+          await prisma.roiLevelIncome.create({
+            data: {
+              userId: parentId,
+              fromUserId: fromUserId,
+              level: levelIndex + 1,
+              amount: commission,
+            },
+          });
+        }
+
+        levelIndex++;
+      }
+    }
+
+    // call distribution for this payout
+    await distributeLevelIncomeSkipInactive(user.id, payout, earning.depositId);
+
     return Response.json({
       success: true,
     });

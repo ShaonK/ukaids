@@ -86,19 +86,30 @@ export default function DashboardPage() {
               title="Account Balance"
               amount={fmt(wallet.mainWallet)}
             />
+
             <UserAmountSummaryCard
               title="Income Balance"
               amount={fmt(wallet.roiWallet)}
             />
+
             <UserAmountSummaryCard
               title="Referral Balance"
               amount={fmt(wallet.referralWallet)}
             />
+
+            {/* ⭐ NEW CARD — Level Income */}
+            <UserAmountSummaryCard
+              title="Level Income"
+              amount={fmt(wallet.levelWallet)}
+            />
+
+            {/* Total Earned */}
             <UserAmountSummaryCard
               title="Total Earned"
               amount={fmt(
                 (wallet.roiWallet || 0) +
                 (wallet.referralWallet || 0) +
+                (wallet.levelWallet || 0) +   // ⭐ added here also
                 (wallet.returnWallet || 0) +
                 (wallet.salaryWallet || 0)
               )}

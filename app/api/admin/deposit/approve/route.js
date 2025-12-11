@@ -93,9 +93,7 @@ export async function POST(req) {
     });
 
     // -------------------------
-    // 6) Referral commission (for every approved deposit — as requested)
-    //    3 levels: 10%, 3%, 2%
-    //    create wallet increment + referralCommissionHistory rows
+    // 6) Referral commission (existing behaviour)
     // -------------------------
     const L1 = 0.10;
     const L2 = 0.03;
@@ -165,6 +163,70 @@ export async function POST(req) {
         },
       });
     }
+
+    // -------------------------
+    // 7) LEVEL INCOME (based on the instant ROI payout)
+    //    levels: 5%, 4%, 4%, 3%, 2%, 1%   (6 levels)
+    //    SKIP inactive/blocked/suspended parents and continue upward until 6 eligible levels found
+    // -------------------------
+    async function distributeLevelIncomeSkipInactive(fromUserId, baseAmount, depositId) {
+      const levelPercents = [0.05, 0.04, 0.04, 0.03, 0.02, 0.01];
+      let levelIndex = 0;
+      let currentUserId = fromUserId;
+
+      // Loop until we've assigned all levelPercents or chain ends
+      while (levelIndex < levelPercents.length) {
+        // find immediate parent of currentUserId
+        const child = await prisma.user.findUnique({
+          where: { id: currentUserId },
+          select: { referredBy: true },
+        });
+
+        const parentId = child?.referredBy ?? null;
+        if (!parentId) break; // chain ended
+
+        // fetch parent's status
+        const parent = await prisma.user.findUnique({
+          where: { id: parentId },
+          select: { id: true, isActive: true, isBlocked: true, isSuspended: true },
+        });
+
+        // move current pointer up for next iteration regardless of skip or assign
+        currentUserId = parentId;
+
+        // if parent not eligible, SKIP (do not increment levelIndex), continue upward
+        if (!parent || !parent.isActive || parent.isBlocked || parent.isSuspended) {
+          continue; // skip this parent but continue searching higher
+        }
+
+        // parent is eligible — assign this level
+        const percent = levelPercents[levelIndex];
+        const commission = Number((baseAmount * percent).toFixed(6));
+        if (commission > 0) {
+          // credit to parent's levelWallet
+          await prisma.wallet.update({
+            where: { userId: parentId },
+            data: { levelWallet: { increment: commission } },
+          });
+
+          // create RoiLevelIncome history row
+          await prisma.roiLevelIncome.create({
+            data: {
+              userId: parentId,
+              fromUserId: fromUserId,
+              level: levelIndex + 1,
+              amount: commission,
+            },
+          });
+        }
+
+        // move to next level slot
+        levelIndex++;
+      }
+    }
+
+    // distribute level income based on instantRoi (using skip-inactive rule)
+    await distributeLevelIncomeSkipInactive(userId, instantRoi, id);
 
     return Response.json({ success: true, earningId: createdEarning.id });
   } catch (err) {
