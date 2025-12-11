@@ -41,9 +41,12 @@ model User {
   rejectedWithdraws RejectedWithdraw[]
 
   // ROI
-  roiEarnings     RoiEarning[]
-  roiHistory      RoiHistory[]
-  userDepositRois UserDepositRoi[]
+  roiEarnings             RoiEarning[]
+  roiHistory              RoiHistory[]
+  userDepositRois         UserDepositRoi[]
+  // ROI Level Income Relations
+  roiLevelIncomeReceived  RoiLevelIncome[] @relation("LevelUser")
+  roiLevelIncomeGenerated RoiLevelIncome[] @relation("LevelFromUser")
 }
 
 /**
@@ -200,13 +203,14 @@ model RoiEarning {
   id        Int      @id @default(autoincrement())
   userId    Int
   depositId Int
-  amount    Float
+  amount    Float // per-day ROI amount
   createdAt DateTime @default(now())
 
-  nextRun     DateTime
-  totalEarned Float    @default(0)
-  maxEarnable Float    @default(0)
-  isActive    Boolean  @default(true)
+  nextRun     DateTime // next ROI time
+  totalEarned Float     @default(0)
+  maxEarnable Float     @default(0)
+  isActive    Boolean   @default(true)
+  lastRunDate DateTime? // last ROI generated date (NEW)
 
   user    User    @relation(fields: [userId], references: [id])
   deposit Deposit @relation(fields: [depositId], references: [id])
@@ -214,4 +218,26 @@ model RoiEarning {
   roiHistories RoiHistory[]
 
   @@map("roiearning")
+}
+
+model RoiSettings {
+  id            Int      @id @default(autoincrement())
+  roiPercent    Float    @default(2) // 2% daily ROI
+  capMultiplier Float    @default(2) // 2x return cap
+  roiDays       String   @default("Mon,Tue,Wed,Thu,Fri")
+  offDays       String   @default("Sat,Sun")
+  timezone      String   @default("UTC")
+  updatedAt     DateTime @updatedAt
+}
+
+model RoiLevelIncome {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  fromUserId Int
+  level      Int
+  amount     Float
+  createdAt  DateTime @default(now())
+
+  user     User @relation("LevelUser", fields: [userId], references: [id])
+  fromUser User @relation("LevelFromUser", fields: [fromUserId], references: [id])
 }
