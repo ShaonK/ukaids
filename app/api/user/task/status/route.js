@@ -7,10 +7,13 @@ export async function GET() {
     const user = await getUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Latest earning even if inactive
+    // ALWAYS fetch correct ROI row:
     const earning = await prisma.roiEarning.findFirst({
       where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
+      orderBy: [
+        { isActive: "desc" },
+        { nextRun: "asc" },
+      ],
     });
 
     if (!earning) {
@@ -22,7 +25,7 @@ export async function GET() {
     }
 
     const now = new Date();
-    const isReady = Boolean(earning.isActive && earning.nextRun <= now);
+    const isReady = earning.isActive && earning.nextRun <= now;
 
     return Response.json({
       success: true,
@@ -33,7 +36,7 @@ export async function GET() {
         nextRun: earning.nextRun,
         totalEarned: Number(earning.totalEarned),
         maxEarnable: Number(earning.maxEarnable),
-        isActive: !!earning.isActive,
+        isActive: earning.isActive,
         isReady,
       },
     });

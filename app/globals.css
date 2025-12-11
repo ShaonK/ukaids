@@ -9,6 +9,10 @@
   /* Inner card gradient border */
   .border-gradient-inner { border-image: linear-gradient(102.93deg, rgba(201, 119, 30, 0.7) 26.82%, rgba(59, 130, 246, 0.7) 82.57%) 1; }
 }
+@keyframes fillBar {
+  from { width: 0%; }
+  to { width: 100%; }
+}
 
 
 
