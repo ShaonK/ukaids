@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 export default function UserActionMenu() {
   const router = useRouter();
 
-  const items = [
+const items = [
     { title: "Personal Information", icon: "/icons/personal.png", path: "/user/profile" },
     { title: "Message", icon: "/icons/message.png", path: "/user/messages" },
     { title: "Withdrawal", icon: "/icons/withdraw.png", path: "/user/withdraw" },
@@ -14,13 +14,14 @@ export default function UserActionMenu() {
 
     { title: "Withdrawal Records", icon: "/icons/withdraw-record.png", path: "/user/withdraw-records" },
     { title: "Recharge Records", icon: "/icons/recharge-record.png", path: "/user/recharge-records" },
-    { title: "Wallet Changes", icon: "/icons/wallet-change.png", path: "/user/wallet-changes" },
-    { title: "Invite", icon: "/icons/invite.png", path: "/user/invite" },
 
-    { title: "About Us", icon: "/icons/about.png", path: "/about" },
-    { title: "Log out", icon: "/icons/logout.png", action: "logout" },
+    // 👉 Wallet History Page
     { title: "Wallet History", icon: "/icons/wallet-change.png", path: "/user/wallet-changes" },
-  ];
+
+    { title: "Invite", icon: "/icons/invite.png", path: "/user/invite" },
+    { title: "About Us", icon: "/icons/about.png", path: "/about" },
+    { title: "Log out", icon: "/icons/logout.png", action: "logout" }
+];
 
   // Ripple Click Effect Function
   const createRipple = (e) => {
