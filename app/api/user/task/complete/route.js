@@ -1,6 +1,7 @@
 // app/api/user/task/complete/route.js
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
+import { updateUserActiveStatus } from "@/lib/updateUserActiveStatus";
 
 export async function POST() {
   try {
@@ -10,9 +11,20 @@ export async function POST() {
 
     const now = new Date();
 
-    // ----------------------------------------------
-    // 1) Find active earning ready for payout
-    // ----------------------------------------------
+    // 0) Inactive user cannot run ROI task
+    const liveUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { isActive: true, isBlocked: true, isSuspended: true },
+    });
+
+    if (!liveUser.isActive || liveUser.isBlocked || liveUser.isSuspended) {
+      return Response.json(
+        { error: "Inactive account. No ROI allowed." },
+        { status: 403 }
+      );
+    }
+
+    // 1) Find earning ready for payout
     const earning = await prisma.roiEarning.findFirst({
       where: { userId: user.id, isActive: true, nextRun: { lte: now } },
       orderBy: { id: "asc" },
@@ -22,31 +34,24 @@ export async function POST() {
       return Response.json({ error: "No ROI ready" }, { status: 400 });
     }
 
-    // ----------------------------------------------
-    // 2) ATOMIC LOCK SYSTEM (Prevents double payout)
-    // ----------------------------------------------
+    // 2) Lock earning to prevent duplicate
     const lock = await prisma.roiEarning.updateMany({
       where: {
         id: earning.id,
-        nextRun: earning.nextRun,         // ensure same (not already locked)
-        totalEarned: earning.totalEarned, // ensure untouched
+        nextRun: earning.nextRun,
+        totalEarned: earning.totalEarned,
       },
-      data: {
-        nextRun: new Date(9999, 0, 1),     // temporarily lock
-      },
+      data: { nextRun: new Date(9999, 0, 1) },
     });
 
-    // If lock fails → another request already processed payout
     if (lock.count === 0) {
       return Response.json(
-        { error: "Task already processed. Please wait." },
+        { error: "Task already processed. Wait…" },
         { status: 429 }
       );
     }
 
-    // ----------------------------------------------
     // 3) Calculate payout
-    // ----------------------------------------------
     const payoutUnit = Number(earning.amount);
     const prevTotal = Number(earning.totalEarned);
     const maxAllowed = Number(earning.maxEarnable);
@@ -55,9 +60,7 @@ export async function POST() {
     const payout = Math.min(payoutUnit, remaining);
     const overflow = payoutUnit - payout;
 
-    // ----------------------------------------------
     // 4) Update wallet
-    // ----------------------------------------------
     await prisma.wallet.update({
       where: { userId: user.id },
       data: {
@@ -66,9 +69,7 @@ export async function POST() {
       },
     });
 
-    // ----------------------------------------------
-    // 5) Add roi history row
-    // ----------------------------------------------
+    // 5) Add ROI history
     await prisma.roiHistory.create({
       data: {
         userId: user.id,
@@ -77,9 +78,7 @@ export async function POST() {
       },
     });
 
-    // ----------------------------------------------
     // 6) Update earning progress
-    // ----------------------------------------------
     const updatedTotal = prevTotal + payout;
     const reachedCap = updatedTotal >= maxAllowed;
 
@@ -87,7 +86,6 @@ export async function POST() {
       ? earning.nextRun
       : new Date(Date.now() + 1 * 60 * 1000);
 
-    // restore nextRun (unlock)
     await prisma.roiEarning.update({
       where: { id: earning.id },
       data: {
@@ -98,15 +96,26 @@ export async function POST() {
       },
     });
 
-    // ----------------------------------------------
-    // 7) LEVEL INCOME — skip inactive parents
-    // ----------------------------------------------
-    async function distributeLevelIncome(fromUserId, baseAmount) {
-      const LEVELS = [0.05, 0.04, 0.04, 0.03, 0.02, 0.01];
-      let level = 0;
-      let current = fromUserId;
+    // *************************************************************
+    // 7) NEW LEVEL INCOME LOGIC (BASED ON DIRECT REFERRAL COUNT)
+    // *************************************************************
 
-      while (level < LEVELS.length) {
+    // Get how many direct referrals this user has
+    const directCount = await prisma.user.count({
+      where: { referredBy: user.id }
+    });
+
+    // max levels allowed
+    const LEVELS = [0.05, 0.04, 0.04, 0.03, 0.02];
+    const allowedLevels = Math.min(directCount, 5); // user cannot unlock beyond his directs
+
+    async function distributeLevelIncome(fromUserId, baseAmount) {
+      if (allowedLevels === 0) return;
+
+      let current = fromUserId;
+      let level = 0;
+
+      while (level < allowedLevels) {
         const u = await prisma.user.findUnique({
           where: { id: current },
           select: { referredBy: true },
@@ -114,6 +123,9 @@ export async function POST() {
 
         const parentId = u?.referredBy ?? null;
         if (!parentId) break;
+
+        // prevent self income (safety)
+        if (parentId === fromUserId) break;
 
         const parent = await prisma.user.findUnique({
           where: { id: parentId },
@@ -128,7 +140,8 @@ export async function POST() {
         current = parentId;
 
         if (!parent || !parent.isActive || parent.isBlocked || parent.isSuspended) {
-          continue; // skip inactive
+          level++; // skip but continue upward
+          continue;
         }
 
         const percent = LEVELS[level];
@@ -143,7 +156,7 @@ export async function POST() {
           await prisma.roiLevelIncome.create({
             data: {
               userId: parentId,
-              fromUserId: fromUserId,
+              fromUserId,
               level: level + 1,
               amount: commission,
             },
@@ -157,12 +170,14 @@ export async function POST() {
     await distributeLevelIncome(user.id, payout);
 
     // ----------------------------------------------
-    // 8) FINAL RESPONSE
+    // 8) Update user active status automatically
     // ----------------------------------------------
+    await updateUserActiveStatus(user.id);
+
     return Response.json({ success: true });
 
   } catch (err) {
-    console.error("TASK COMPLETE LOCK ERROR:", err);
+    console.error("TASK COMPLETE ERROR:", err);
     return Response.json({ error: "Server error" }, { status: 500 });
   }
 }

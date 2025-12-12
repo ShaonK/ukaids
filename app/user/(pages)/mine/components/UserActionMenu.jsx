@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 export default function UserActionMenu() {
   const router = useRouter();
 
-const items = [
+  const items = [
     { title: "Personal Information", icon: "/icons/personal.png", path: "/user/profile" },
     { title: "Message", icon: "/icons/message.png", path: "/user/messages" },
     { title: "Withdrawal", icon: "/icons/withdraw.png", path: "/user/withdraw" },
@@ -18,12 +18,14 @@ const items = [
     // 👉 Wallet History Page
     { title: "Wallet History", icon: "/icons/wallet-change.png", path: "/user/wallet-changes" },
 
+    // ⭐ NEW: Status History Menu
+    { title: "Status History", icon: "/icons/status-history.png", path: "/user/status-history" },
+
     { title: "Invite", icon: "/icons/invite.png", path: "/user/invite" },
     { title: "About Us", icon: "/icons/about.png", path: "/about" },
     { title: "Log out", icon: "/icons/logout.png", action: "logout" }
-];
+  ];
 
-  // Ripple Click Effect Function
   const createRipple = (e) => {
     const card = e.currentTarget;
     const ripple = document.createElement("span");
@@ -41,7 +43,6 @@ const items = [
     setTimeout(() => ripple.remove(), 600);
   };
 
-  // ACTION HANDLER
   const handleItemClick = async (item) => {
     if (item.action === "logout") {
       const res = await logoutAction();
@@ -51,7 +52,6 @@ const items = [
       return;
     }
 
-    // 👉 Redirect user to selected path
     if (item.path) {
       router.push(item.path);
     }
@@ -97,7 +97,6 @@ const items = [
               active:scale-95
             "
           >
-            {/* Icon Box */}
             <div
               className="
                 w-[68px] h-[68px] rounded-xl bg-[#1A1A1A]
@@ -121,7 +120,6 @@ const items = [
               </div>
             </div>
 
-            {/* Label */}
             <span
               className="
                 mt-1 text-[12px] text-[#E07503] text-center

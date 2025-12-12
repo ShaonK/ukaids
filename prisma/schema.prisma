@@ -15,9 +15,9 @@ model User {
   id           Int     @id @default(autoincrement())
   fullname     String
   username     String  @unique
-  referralCode String
-  mobile       String
-  email        String?
+  referralCode String  @unique
+  mobile       String  @unique
+  email        String? @unique
   password     String
   txnPassword  String
 
@@ -52,7 +52,21 @@ model User {
   // REFERRAL COMMISSION RELATIONS
   referralCommissionsReceived ReferralCommissionHistory[] @relation("ReferralToUser")
   referralCommissionsGiven    ReferralCommissionHistory[] @relation("ReferralFromUser")
+  statusHistory UserStatusHistory[]
 }
+model UserStatusHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  status    String   // "active" | "inactive"
+  startDate DateTime @default(now())
+  endDate   DateTime?
+  reason    String?
+  closedAt  DateTime?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id])
+}
+
+
 
 /**
  * ---------------- WALLET ----------------
