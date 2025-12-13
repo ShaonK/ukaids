@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
-const COMMISSION_RATES = {
+const LEVEL_RATES = {
   1: 0.05,
   2: 0.04,
   3: 0.03,
@@ -14,11 +14,11 @@ export default function GenerationHistoryPage() {
   const [tree, setTree] = useState([]);
   const [genCounts, setGenCounts] = useState({});
   const [income, setIncome] = useState({ total: 0, levels: {}, fromUsers: {} });
-  const [directReferrals, setDirect] = useState(0);
+  const [directs, setDirects] = useState(0);
   const [expanded, setExpanded] = useState({});
 
   function toggle(id) {
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+    setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
   }
 
   async function load() {
@@ -28,7 +28,7 @@ export default function GenerationHistoryPage() {
     setTree(data.tree);
     setGenCounts(data.generationCounts);
     setIncome(data.income);
-    setDirect(data.directReferrals ?? 0);
+    setDirects(data.directReferrals);
   }
 
   useEffect(() => {
@@ -36,12 +36,13 @@ export default function GenerationHistoryPage() {
   }, []);
 
   const Node = ({ node }) => {
-    const hasChild = node.children.length > 0;
     const isOpen = expanded[node.id];
-    const rate = COMMISSION_RATES[node.generation] ?? 0;
-    const incomeFromUser = income.fromUsers[node.id] ?? 0;
+    const hasChild = node.children.length > 0;
+    const rateDisplay = LEVEL_RATES[node.generation] ? (LEVEL_RATES[node.generation] * 100) + "%" : "0%";
 
-    const unlocked = directReferrals >= node.generation;
+    const gotIncome = income.fromUsers[node.id];
+    const requiredDirect = node.generation;
+    const levelUnlocked = directs >= requiredDirect;
 
     return (
       <div className="ml-4 border-l border-gray-700 pl-3 mt-2">
@@ -50,119 +51,78 @@ export default function GenerationHistoryPage() {
           onClick={() => toggle(node.id)}
         >
           {hasChild ? (
-            <span className="text-yellow-400 text-sm">
-              {isOpen ? "▼" : "▶"}
-            </span>
+            <span className="text-yellow-400 text-sm">{isOpen ? "▼" : "▶"}</span>
           ) : (
             <span className="text-gray-600 text-sm">•</span>
           )}
 
           <div>
-            {/* USER NAME */}
             <p className="text-white text-sm font-semibold">
               {node.fullname} ({node.username})
             </p>
 
-            {/* GENERATION */}
-            <p className="text-xs text-gray-400">
-              Generation: {node.generation}
-            </p>
+            <p className="text-xs text-gray-400">Generation: {node.generation}</p>
 
-            {/* RATE */}
-            <p className="text-xs text-yellow-400">
-              Rate: {(rate * 100).toFixed(0)}%
-            </p>
+            <p className="text-xs text-yellow-400">Rate: {rateDisplay}</p>
 
-            {/* INCOME DISPLAY */}
-            {incomeFromUser > 0 ? (
+            {gotIncome ? (
               <p className="text-xs text-green-400">
-                Income: {incomeFromUser.toFixed(2)}
+                Income: {gotIncome.toFixed(2)}
               </p>
             ) : (
               <p className="text-xs text-red-400">
-                Income: 0.00 — Locked (Need {node.generation} directs)
+                Income: 0.00 — Level {node.generation} Locked. Needs {requiredDirect} directs.
               </p>
             )}
           </div>
         </div>
 
-        {isOpen &&
-          node.children.map((c) => <Node key={c.id} node={c} />)}
+        {isOpen && node.children.map(c => <Node key={c.id} node={c} />)}
       </div>
     );
   };
 
   return (
-    <div className="p-4 text-white">
-      {/* PAGE TITLE */}
-      <h2 className="text-xl font-bold text-center mb-4">
-        Your Generation History
-      </h2>
+    <div className="p-4 text-white pb-20">
+      <h2 className="text-xl font-bold text-center mb-4">Your Generation History</h2>
 
-      {/* DIRECT REFERRALS CARD */}
-      <div className="bg-[#1A1A1A] p-4 rounded-lg mb-4 border border-gray-800">
-        <h3 className="font-semibold text-yellow-400 mb-1">
-          Your Direct Referrals
-        </h3>
-        <p className="text-blue-400 text-lg">{directReferrals}</p>
+      {/* Direct Referrals */}
+      <div className="bg-[#1A1A1A] p-4 rounded-lg mb-4">
+        <p className="text-yellow-400 font-semibold">Your Direct Referrals:</p>
+        <p className="text-green-400 text-lg">{directs}</p>
       </div>
 
-      {/* TOTAL INCOME CARD */}
-      <div className="bg-[#1A1A1A] p-4 rounded-lg mb-4 border border-gray-800">
-        <h3 className="font-semibold text-yellow-400 mb-1">
-          Total Level Income
-        </h3>
+      {/* Total Income */}
+      <div className="bg-[#1A1A1A] p-4 rounded-lg mb-4">
+        <p className="text-yellow-400 font-semibold">Total Level Income:</p>
         <p className="text-green-400 text-lg">{income.total.toFixed(2)}</p>
       </div>
 
-      {/* GENERATION SUMMARY */}
-      <div className="bg-[#1A1A1A] p-4 rounded-lg mb-4 border border-gray-800">
-        <h3 className="font-semibold text-yellow-400 mb-2">
-          Generation Summary
-        </h3>
+      {/* Generation Summary */}
+      <div className="bg-[#1A1A1A] p-4 rounded-lg mb-4">
+        <p className="text-yellow-400 font-semibold mb-2">Generation Summary</p>
 
-        {Object.keys(genCounts).map((g) => {
-          const rate = COMMISSION_RATES[g] ?? 0;
-
-          const isUnlocked = directReferrals >= g;
-          const earned = income.levels[g] ?? 0;
-
-          return (
-            <div
-              key={g}
-              className="text-sm text-gray-300 flex justify-between mb-2"
-            >
-              <div>
-                <span className="text-white font-semibold">
-                  Gen {g}: {genCounts[g]} users
-                </span>{" "}
-                <span className="text-yellow-400">
-                  ({(rate * 100).toFixed(0)}%)
-                </span>
-
-                {!isUnlocked && (
-                  <p className="text-red-400 text-xs">
-                    Unlock requires {g} direct referrals.
-                  </p>
-                )}
-              </div>
-
-              <span className="text-green-400 font-semibold">
-                {earned.toFixed(2)}
-              </span>
-            </div>
-          );
-        })}
+        {Object.keys(genCounts).map(g => (
+          <div key={g} className="flex justify-between text-sm mb-1">
+            <span>
+              Gen {g}: {genCounts[g]} users
+              <span className="text-yellow-400"> ({(LEVEL_RATES[g] ?? 0) * 100}%)</span>
+            </span>
+            <span className="text-green-400">
+              {income.levels[g] ? income.levels[g].toFixed(2) : "0.00"}
+            </span>
+          </div>
+        ))}
       </div>
 
-      {/* TREE VIEW */}
-      <div className="bg-[#1A1A1A] p-4 rounded-lg border border-gray-800">
-        <h3 className="font-semibold text-yellow-400 mb-2">Your Team Tree</h3>
+      {/* TREE */}
+      <div className="bg-[#1A1A1A] p-4 rounded-lg">
+        <p className="text-yellow-400 font-semibold mb-2">Your Team Tree</p>
 
         {tree.length === 0 ? (
-          <p className="text-gray-400 text-center">No downline</p>
+          <p className="text-gray-400 text-center">No downline users.</p>
         ) : (
-          tree.map((n) => <Node key={n.id} node={n} />)
+          tree.map(n => <Node key={n.id} node={n} />)
         )}
       </div>
     </div>

@@ -2,6 +2,7 @@
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 import { updateUserActiveStatus } from "@/lib/updateUserActiveStatus";
+import { onRoiGenerated } from "@/lib/onRoiGenerated";
 
 export async function POST() {
   try {
@@ -70,7 +71,7 @@ export async function POST() {
     });
 
     // 5) Add ROI history
-    await prisma.roiHistory.create({
+    const roiHistory = await prisma.roiHistory.create({
       data: {
         userId: user.id,
         earningId: earning.id,
@@ -96,78 +97,15 @@ export async function POST() {
       },
     });
 
-    // *************************************************************
-    // 7) NEW LEVEL INCOME LOGIC (BASED ON DIRECT REFERRAL COUNT)
-    // *************************************************************
-
-    // Get how many direct referrals this user has
-    const directCount = await prisma.user.count({
-      where: { referredBy: user.id }
+    // --------------------------------------------------
+    // 7) LEVEL INCOME (SHARED – INDUSTRY STANDARD)
+    // --------------------------------------------------
+    await onRoiGenerated({
+      roiUserId: user.id,
+      roiAmount: payout,
+      roiEventId: roiHistory.id, // future-proof
+      source: "task",
     });
-
-    // max levels allowed
-    const LEVELS = [0.05, 0.04, 0.04, 0.03, 0.02];
-    const allowedLevels = Math.min(directCount, 5); // user cannot unlock beyond his directs
-
-    async function distributeLevelIncome(fromUserId, baseAmount) {
-      if (allowedLevels === 0) return;
-
-      let current = fromUserId;
-      let level = 0;
-
-      while (level < allowedLevels) {
-        const u = await prisma.user.findUnique({
-          where: { id: current },
-          select: { referredBy: true },
-        });
-
-        const parentId = u?.referredBy ?? null;
-        if (!parentId) break;
-
-        // prevent self income (safety)
-        if (parentId === fromUserId) break;
-
-        const parent = await prisma.user.findUnique({
-          where: { id: parentId },
-          select: {
-            id: true,
-            isActive: true,
-            isBlocked: true,
-            isSuspended: true,
-          },
-        });
-
-        current = parentId;
-
-        if (!parent || !parent.isActive || parent.isBlocked || parent.isSuspended) {
-          level++; // skip but continue upward
-          continue;
-        }
-
-        const percent = LEVELS[level];
-        const commission = Number((baseAmount * percent).toFixed(6));
-
-        if (commission > 0) {
-          await prisma.wallet.update({
-            where: { userId: parentId },
-            data: { levelWallet: { increment: commission } },
-          });
-
-          await prisma.roiLevelIncome.create({
-            data: {
-              userId: parentId,
-              fromUserId,
-              level: level + 1,
-              amount: commission,
-            },
-          });
-        }
-
-        level++;
-      }
-    }
-
-    await distributeLevelIncome(user.id, payout);
 
     // ----------------------------------------------
     // 8) Update user active status automatically
