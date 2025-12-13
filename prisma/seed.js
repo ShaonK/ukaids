@@ -1,37 +1,28 @@
-// prisma/seed.js
 import prisma from "../lib/prisma.js";
 
 async function main() {
-  console.log("🧹 Cleaning entire database...");
+  const packages = [
+    { name: "Starter", amount: 50, position: 1 },
+    { name: "Basic", amount: 100, position: 2 },
+    { name: "Standard", amount: 250, position: 3 },
+    { name: "Silver", amount: 500, position: 4 },
+    { name: "Gold", amount: 1000, position: 5 },
+    { name: "Platinum", amount: 2500, position: 6 },
+    { name: "Diamond", amount: 5000, position: 7 },
+    { name: "Elite", amount: 10000, position: 8 },
+    { name: "Ultimate", amount: 20000, position: 9 },
+  ];
 
-  // DELETE ORDER (deep → shallow)
-  await prisma.userStatusHistory.deleteMany();
-  await prisma.roiLevelIncome.deleteMany();
-  await prisma.referralCommissionHistory.deleteMany();
-  await prisma.roiHistory.deleteMany();
-  await prisma.roiEarning.deleteMany();
-  await prisma.userDepositRoi.deleteMany();
+  // clean for dev only
+  await prisma.package.deleteMany();
 
-  await prisma.depositHistory.deleteMany();
-  await prisma.approvedDeposit.deleteMany();
-  await prisma.rejectedDeposit.deleteMany();
-  await prisma.approvedWithdraw.deleteMany();
-  await prisma.rejectedWithdraw.deleteMany();
-  await prisma.withdraw.deleteMany();
-  await prisma.deposit.deleteMany();
+  await prisma.package.createMany({
+    data: packages,
+  });
 
-  await prisma.wallet.deleteMany();
-  await prisma.user.deleteMany();
-
-  console.log("✅ Database fully cleaned! No data inserted.");
-  console.log("➡ Now run your ROOT seed.js to generate accounts.");
+  console.log("✅ Packages seeded");
 }
 
 main()
-  .catch((err) => {
-    console.error("❌ Clean Error:", err);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());

@@ -52,21 +52,30 @@ model User {
   // REFERRAL COMMISSION RELATIONS
   referralCommissionsReceived ReferralCommissionHistory[] @relation("ReferralToUser")
   referralCommissionsGiven    ReferralCommissionHistory[] @relation("ReferralFromUser")
+
   statusHistory UserStatusHistory[]
+
+  // NEW
+  userPackages      UserPackage[]
+  walletTransactions WalletTransaction[]
+  sentTransfers     BalanceTransfer[] @relation("Sender")
+  receivedTransfers BalanceTransfer[] @relation("Receiver")
+  withdrawAddresses WithdrawAddress[]
+  withdrawRequests  WithdrawRequest[]
 }
+
 model UserStatusHistory {
   id        Int      @id @default(autoincrement())
   userId    Int
-  status    String   // "active" | "inactive"
+  status    String
   startDate DateTime @default(now())
   endDate   DateTime?
   reason    String?
   closedAt  DateTime?
   createdAt DateTime @default(now())
+
   user User @relation(fields: [userId], references: [id])
 }
-
-
 
 /**
  * ---------------- WALLET ----------------
@@ -78,12 +87,71 @@ model Wallet {
   user   User @relation(fields: [userId], references: [id])
 
   mainWallet     Float @default(0)
+  depositWallet  Float @default(0) // 🔥 NEW
   roiWallet      Float @default(0)
   referralWallet Float @default(0)
   levelWallet    Float @default(0)
   returnWallet   Float @default(0)
   salaryWallet   Float @default(0)
   donationWallet Float @default(0)
+}
+
+/**
+ * ---------------- WALLET TRANSACTION (AUDIT) ----------------
+ */
+
+model WalletTransaction {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+
+  walletType    String   // ACCOUNT | DEPOSIT | ROI | LEVEL | REFERRAL | RETURN
+  direction     String   // CREDIT | DEBIT
+  amount        Float
+
+  balanceBefore Float
+  balanceAfter  Float
+
+  source        String   // deposit | withdraw | transfer | roi | level | admin
+  referenceId   Int?
+  note          String?
+
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+/**
+ * ---------------- PACKAGE SYSTEM ----------------
+ */
+
+model Package {
+  id        Int     @id @default(autoincrement())
+  name      String
+  amount    Float
+  position  Int
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+
+  userPackages     UserPackage[]
+  balanceTransfers BalanceTransfer[] // 🔥 REQUIRED
+}
+
+model UserPackage {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  packageId Int
+  amount    Float
+
+  isActive  Boolean @default(true)
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+
+  source    String // self | transfer | admin
+
+  user    User    @relation(fields: [userId], references: [id])
+  package Package @relation(fields: [packageId], references: [id])
+
+  @@index([userId, isActive])
 }
 
 /**
@@ -171,6 +239,28 @@ model Withdraw {
   createdAt  DateTime @default(now())
 }
 
+model WithdrawRequest {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  amount    Float
+  address   String
+  network   String
+  status    String   // pending | approved | rejected
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model WithdrawAddress {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  address   String
+  network   String
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
 model ApprovedWithdraw {
   id         Int      @id @default(autoincrement())
   userId     Int
@@ -191,8 +281,26 @@ model RejectedWithdraw {
   user User @relation(fields: [userId], references: [id])
 }
 
+
 /**
- * ---------------- ROI MODELS ----------------
+ * ---------------- USER TO USER TRANSFER ----------------
+ */
+
+model BalanceTransfer {
+  id         Int      @id @default(autoincrement())
+  senderId   Int
+  receiverId Int
+  amount     Float
+  packageId  Int
+  createdAt  DateTime @default(now())
+
+  sender   User    @relation("Sender", fields: [senderId], references: [id])
+  receiver User    @relation("Receiver", fields: [receiverId], references: [id])
+  package  Package @relation(fields: [packageId], references: [id])
+}
+
+/**
+ * ---------------- ROI MODELS (UNCHANGED) ----------------
  */
 
 model UserDepositRoi {
@@ -218,10 +326,8 @@ model RoiHistory {
   user    User       @relation(fields: [userId], references: [id])
   earning RoiEarning @relation(fields: [earningId], references: [id])
 
-  // 🔥 ADD THIS (opposite relation)
   levelIncomes RoiLevelIncome[]
 }
-
 
 model RoiEarning {
   id        Int      @id @default(autoincrement())
@@ -258,17 +364,16 @@ model RoiLevelIncome {
   id           Int      @id @default(autoincrement())
   userId       Int
   fromUserId   Int
-  roiHistoryId Int?     // 🔥 NEW (nullable for old data)
-  source       String?  // 🔥 NEW ("deposit" | "task" | "repair")
+  roiHistoryId Int?
+  source       String?
   level        Int
   amount       Float
   createdAt    DateTime @default(now())
 
-  user       User       @relation("LevelUser", fields: [userId], references: [id])
-  fromUser   User       @relation("LevelFromUser", fields: [fromUserId], references: [id])
+  user       User        @relation("LevelUser", fields: [userId], references: [id])
+  fromUser   User        @relation("LevelFromUser", fields: [fromUserId], references: [id])
   roiHistory RoiHistory? @relation(fields: [roiHistoryId], references: [id])
 }
-
 
 /**
  * ---------------- REFERRAL COMMISSION HISTORY ----------------

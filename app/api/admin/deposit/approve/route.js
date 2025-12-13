@@ -2,6 +2,7 @@
 import prisma from "@/lib/prisma";
 import { updateUserActiveStatus, openActiveHistory } from "@/lib/updateUserActiveStatus";
 import { onRoiGenerated } from "@/lib/onRoiGenerated";
+import { creditWallet } from "@/lib/walletService";
 
 const DEBUG = true;
 function log(...x) {
@@ -22,8 +23,6 @@ export async function POST(req) {
       return Response.json({ error: "Deposit ID missing" }, { status: 400 });
     }
 
-    log("DEPOSIT ID =", id);
-
     // ---------------------------------
     // 2) Load deposit + user
     // ---------------------------------
@@ -43,14 +42,11 @@ export async function POST(req) {
     const userId = deposit.userId;
     const amount = deposit.amount;
 
-    log("Processing Deposit For User:", userId);
-
     // ---------------------------------
     // 3) Load Admin
     // ---------------------------------
     const admin = await prisma.admin.findFirst();
     if (!admin) {
-      log("❌ No Admin Found!");
       return Response.json({ error: "Admin missing" }, { status: 500 });
     }
 
@@ -62,17 +58,17 @@ export async function POST(req) {
       data: { status: "approved" },
     });
 
-    log("✔ Deposit Approved");
-
     // ---------------------------------
-    // 5) Credit main wallet
+    // 5) CREDIT ACCOUNT WALLET (AUDITED)
     // ---------------------------------
-    await prisma.wallet.update({
-      where: { userId },
-      data: { mainWallet: { increment: amount } },
+    await creditWallet({
+      userId,
+      walletType: "ACCOUNT",
+      amount,
+      source: "DEPOSIT_APPROVE",
+      referenceId: id,
+      note: `Deposit approved (trx: ${deposit.trxId})`,
     });
-
-    log("✔ Wallet credited");
 
     // ---------------------------------
     // 6) Log ApprovedDeposit
@@ -99,8 +95,6 @@ export async function POST(req) {
       },
     });
 
-    log("✔ DepositHistory saved");
-
     // ---------------------------------
     // 8) Auto Activate User
     // ---------------------------------
@@ -116,7 +110,6 @@ export async function POST(req) {
       });
 
       await openActiveHistory(userId, "Deposit approved → activated");
-      log("✔ User activated");
     }
 
     // ---------------------------------
@@ -127,12 +120,14 @@ export async function POST(req) {
     const maxEarnable = Number((amount * 2).toFixed(6));
     const nextRun = new Date(Date.now() + 60 * 1000);
 
-    log("ROI Amount =", roiAmount);
-
-    // credit ROI wallet
-    await prisma.wallet.update({
-      where: { userId },
-      data: { roiWallet: { increment: roiAmount } },
+    // CREDIT ROI WALLET (AUDITED)
+    await creditWallet({
+      userId,
+      walletType: "ROI",
+      amount: roiAmount,
+      source: "ROI_INSTANT",
+      referenceId: id,
+      note: "Instant ROI on deposit approval",
     });
 
     // create ROI earning
@@ -148,7 +143,7 @@ export async function POST(req) {
       },
     });
 
-    // create ROI history (capture it)
+    // create ROI history
     const roiHistory = await prisma.roiHistory.create({
       data: {
         userId,
@@ -157,20 +152,14 @@ export async function POST(req) {
       },
     });
 
-    log("✔ ROI processed");
-
     // ---------------------------------
-    // 10) REFERRAL COMMISSION (3 levels)
+    // 10) REFERRAL COMMISSION
     // ---------------------------------
     const REF_RATES = [0.10, 0.03, 0.02];
 
     const p1 = deposit.user.referredBy;
-    const p2 = p1
-      ? (await prisma.user.findUnique({ where: { id: p1 } }))?.referredBy
-      : null;
-    const p3 = p2
-      ? (await prisma.user.findUnique({ where: { id: p2 } }))?.referredBy
-      : null;
+    const p2 = p1 ? (await prisma.user.findUnique({ where: { id: p1 } }))?.referredBy : null;
+    const p3 = p2 ? (await prisma.user.findUnique({ where: { id: p2 } }))?.referredBy : null;
 
     async function payReferral(uplineId, rate, level) {
       if (!uplineId) return;
@@ -184,9 +173,13 @@ export async function POST(req) {
 
       const commission = Number((amount * rate).toFixed(6));
 
-      await prisma.wallet.update({
-        where: { userId: uplineId },
-        data: { referralWallet: { increment: commission } },
+      await creditWallet({
+        userId: uplineId,
+        walletType: "REFERRAL",
+        amount: commission,
+        source: "REFERRAL_COMMISSION",
+        referenceId: id,
+        note: `Referral L${level} commission`,
       });
 
       await prisma.referralCommissionHistory.create({
@@ -198,8 +191,6 @@ export async function POST(req) {
           commission,
         },
       });
-
-      log(`✔ Referral L${level} Paid =`, commission);
     }
 
     await payReferral(p1, REF_RATES[0], 1);
@@ -207,11 +198,11 @@ export async function POST(req) {
     await payReferral(p3, REF_RATES[2], 3);
 
     // ---------------------------------
-    // 11) LEVEL INCOME (SHARED – INDUSTRY STANDARD)
+    // 11) LEVEL INCOME (SHARED ENGINE)
     // ---------------------------------
     await onRoiGenerated({
       roiUserId: userId,
-      roiAmount: roiAmount,
+      roiAmount,
       roiEventId: roiHistory.id,
       source: "deposit",
     });
