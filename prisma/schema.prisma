@@ -217,7 +217,11 @@ model RoiHistory {
 
   user    User       @relation(fields: [userId], references: [id])
   earning RoiEarning @relation(fields: [earningId], references: [id])
+
+  // 🔥 ADD THIS (opposite relation)
+  levelIncomes RoiLevelIncome[]
 }
+
 
 model RoiEarning {
   id        Int      @id @default(autoincrement())
@@ -251,16 +255,20 @@ model RoiSettings {
 }
 
 model RoiLevelIncome {
-  id         Int      @id @default(autoincrement())
-  userId     Int
-  fromUserId Int
-  level      Int
-  amount     Float
-  createdAt  DateTime @default(now())
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  fromUserId   Int
+  roiHistoryId Int?     // 🔥 NEW (nullable for old data)
+  source       String?  // 🔥 NEW ("deposit" | "task" | "repair")
+  level        Int
+  amount       Float
+  createdAt    DateTime @default(now())
 
-  user     User @relation("LevelUser", fields: [userId], references: [id])
-  fromUser User @relation("LevelFromUser", fields: [fromUserId], references: [id])
+  user       User       @relation("LevelUser", fields: [userId], references: [id])
+  fromUser   User       @relation("LevelFromUser", fields: [fromUserId], references: [id])
+  roiHistory RoiHistory? @relation(fields: [roiHistoryId], references: [id])
 }
+
 
 /**
  * ---------------- REFERRAL COMMISSION HISTORY ----------------
