@@ -2,25 +2,36 @@ import prisma from "./lib/prisma.js";
 import bcrypt from "bcryptjs";
 
 async function createAdmin() {
-    console.log("⏳ Creating Admin...");
+    try {
+        console.log("⏳ Removing old admin user...");
 
-    const hashedPass = await bcrypt.hash("admin123", 10);
+        // Force delete (ensure DB connection)
+        await prisma.$connect();
+        await prisma.admin.deleteMany({});   // DELETE OLD ADMIN
 
-    const admin = await prisma.admin.create({
-        data: {
-            username: "admin",
-            password: hashedPass,
-        }
-    });
+        console.log("🗑️ Old admin removed. Creating new admin...");
 
-    console.log("✔ Admin created successfully!");
-    console.log("=========================================");
-    console.log("Admin Login Credentials:");
-    console.log("Username: admin");
-    console.log("Password: admin123");
-    console.log("=========================================");
+        const hashedPass = await bcrypt.hash("admin123", 10);
+
+        await prisma.admin.create({
+            data: {
+                username: "admin",
+                password: hashedPass,
+            }
+        });
+
+        console.log("✔ Admin created successfully!");
+        console.log("=========================================");
+        console.log("Username: admin");
+        console.log("Password: admin123");
+        console.log("=========================================");
+
+    } catch (err) {
+        console.error("❌ ERROR:", err);
+    } finally {
+        await prisma.$disconnect();
+        process.exit(0);
+    }
 }
 
-createAdmin()
-    .catch((err) => console.error(err))
-    .finally(() => process.exit());
+createAdmin();

@@ -11,7 +11,7 @@ export default function UserActionMenu() {
     { title: "Message", icon: "/icons/message.png", path: "/user/messages" },
     { title: "Withdrawal", icon: "/icons/withdraw.png", path: "/user/withdraw" },
     { title: "Recharge", icon: "/icons/recharge.png", path: "/user/mine/recharge" },
-
+    { title: "Generation History", icon: "/icons/recharge.png", path: "/user/generation-history" },
     { title: "Withdrawal Records", icon: "/icons/withdraw-record.png", path: "/user/withdraw-records" },
     { title: "Recharge Records", icon: "/icons/recharge-record.png", path: "/user/recharge-records" },
 

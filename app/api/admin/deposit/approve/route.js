@@ -2,52 +2,54 @@
 import prisma from "@/lib/prisma";
 import { updateUserActiveStatus, openActiveHistory } from "@/lib/updateUserActiveStatus";
 
+const DEBUG = true;
+const LEVEL_INCOME_RATES = [0.05, 0.04, 0.03, 0.02, 0.01]; // 5 levels
+
+function log(...x) {
+  if (DEBUG) console.log("🟡 [APPROVE-DEBUG]:", ...x);
+}
+
 export async function POST(req) {
   try {
-    const { id } = await req.json();
+    log("API HIT");
+
+    const body = await req.json().catch(() => null);
+    const id = Number(body?.id || body?.depositId);
+
+    if (!id) return Response.json({ error: "depositId missing" }, { status: 400 });
 
     const deposit = await prisma.deposit.findUnique({
       where: { id },
       include: { user: true },
     });
 
-    if (!deposit) {
-      return Response.json({ error: "Deposit not found" }, { status: 400 });
-    }
-
-    if (deposit.status !== "pending") {
+    if (!deposit) return Response.json({ error: "Deposit not found" }, { status: 400 });
+    if (deposit.status !== "pending")
       return Response.json({ error: "Already processed" }, { status: 400 });
-    }
 
     const userId = deposit.userId;
     const amount = deposit.amount;
 
-    // -------------------------------------------------------
-    // 1) APPROVE DEPOSIT
-    // -------------------------------------------------------
-    await prisma.deposit.update({
-      where: { id },
-      data: { status: "approved" },
-    });
+    // ADMIN
+    const admin = await prisma.admin.findFirst();
+    if (!admin) return Response.json({ error: "Admin not found" }, { status: 500 });
 
-    // -------------------------------------------------------
-    // 2) CREDIT MAIN WALLET
-    // -------------------------------------------------------
+    // 1) APPROVE
+    await prisma.deposit.update({ where: { id }, data: { status: "approved" } });
+    log("✔ Deposit Approved");
+
+    // 2) WALLET
     await prisma.wallet.update({
       where: { userId },
       data: { mainWallet: { increment: amount } },
     });
 
-    // -------------------------------------------------------
-    // 3) APPROVED DEPOSIT RECORD
-    // -------------------------------------------------------
+    // 3) APPROVED LOG
     await prisma.approvedDeposit.create({
       data: { userId, amount, trxId: deposit.trxId },
     });
 
-    // -------------------------------------------------------
-    // 4) DEPOSIT HISTORY
-    // -------------------------------------------------------
+    // 4) HISTORY (fixed processedBy)
     await prisma.depositHistory.create({
       data: {
         userId,
@@ -55,30 +57,22 @@ export async function POST(req) {
         amount,
         trxId: deposit.trxId,
         status: "approved",
-        processedBy: 1,
+        processedBy: admin.id,
       },
     });
 
-    // -------------------------------------------------------
     // 5) AUTO ACTIVATE
-    // -------------------------------------------------------
     const usr = await prisma.user.findUnique({
       where: { id: userId },
       select: { isActive: true },
     });
 
     if (!usr.isActive) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { isActive: true },
-      });
-
+      await prisma.user.update({ where: { id: userId }, data: { isActive: true } });
       await openActiveHistory(userId, "Deposit approved → activated");
     }
 
-    // -------------------------------------------------------
     // 6) INSTANT ROI
-    // -------------------------------------------------------
     const roiPercent = 0.02;
     const instantRoi = Number((amount * roiPercent).toFixed(6));
     const maxEarnable = Number((amount * 2).toFixed(6));
@@ -106,128 +100,52 @@ export async function POST(req) {
       data: { userId, earningId: earningRow.id, amount: instantRoi },
     });
 
-    // -------------------------------------------------------
-    // 7) REFERRAL COMMISSION (3 LVL) → ACTIVE ONLY
-    // -------------------------------------------------------
-    const LEVEL_PERCENTS = [0.10, 0.03, 0.02];
+    // -------------------------
+    // 7) LEVEL INCOME (5 Levels)
+    // -------------------------
+    let upline = deposit.user.referredBy;
+    let level = 0;
 
-    async function payReferralLevel(uplineId, commission, level) {
-      if (!uplineId) return;
+    while (upline && level < 5) {
+      const rate = LEVEL_INCOME_RATES[level]; // NEW RATE FIX
+      const commission = Number((instantRoi * rate).toFixed(2));
 
-      const up = await prisma.user.findUnique({
-        where: { id: uplineId },
+      const parent = await prisma.user.findUnique({
+        where: { id: upline },
         select: { isActive: true, isBlocked: true, isSuspended: true },
       });
 
-      if (!up || !up.isActive || up.isBlocked || up.isSuspended) return;
-
-      await prisma.wallet.update({
-        where: { userId: uplineId },
-        data: { referralWallet: { increment: commission } },
-      });
-
-      await prisma.referralCommissionHistory.create({
-        data: {
-          userId: uplineId,
-          fromUserId: userId,
-          depositId: id,
-          level,
-          commission,
-        },
-      });
-    }
-
-    const p1 = deposit.user.referredBy;
-    const p2 = p1 ? (await prisma.user.findUnique({ where: { id: p1 } }))?.referredBy : null;
-    const p3 = p2 ? (await prisma.user.findUnique({ where: { id: p2 } }))?.referredBy : null;
-
-    const commissions = [
-      Number((amount * LEVEL_PERCENTS[0]).toFixed(6)),
-      Number((amount * LEVEL_PERCENTS[1]).toFixed(6)),
-      Number((amount * LEVEL_PERCENTS[2]).toFixed(6)),
-    ];
-
-    await payReferralLevel(p1, commissions[0], 1);
-    await payReferralLevel(p2, commissions[1], 2);
-    await payReferralLevel(p3, commissions[2], 3);
-
-    // -------------------------------------------------------
-    // 8) LEVEL INCOME — Direct Referral Based Unlock
-    // -------------------------------------------------------
-    // direct_count decides how many levels unlock
-    const directCount = await prisma.user.count({
-      where: { referredBy: userId },
-    });
-
-    const LEVELS = [0.05, 0.04, 0.04, 0.03, 0.02];
-    const unlockedLevels = Math.min(directCount, 5);
-
-    async function distributeLevelIncome(fromUserId, baseAmount) {
-      if (unlockedLevels === 0) return;
-
-      let current = fromUserId;
-      let level = 0;
-
-      while (level < unlockedLevels) {
-        const u = await prisma.user.findUnique({
-          where: { id: current },
-          select: { referredBy: true },
-        });
-
-        const parentId = u?.referredBy ?? null;
-        if (!parentId) break;
-
-        // self income protection
-        if (parentId === fromUserId) break;
-
-        const parent = await prisma.user.findUnique({
-          where: { id: parentId },
-          select: {
-            isActive: true,
-            isBlocked: true,
-            isSuspended: true,
-          },
-        });
-
-        current = parentId;
-
-        if (!parent || !parent.isActive || parent.isBlocked || parent.isSuspended) {
-          level++;
-          continue;
-        }
-
-        const percent = LEVELS[level];
-        const commission = Number((baseAmount * percent).toFixed(6));
-
+      if (parent?.isActive && !parent.isBlocked && !parent.isSuspended) {
         await prisma.wallet.update({
-          where: { userId: parentId },
+          where: { userId: upline },
           data: { levelWallet: { increment: commission } },
         });
 
         await prisma.roiLevelIncome.create({
           data: {
-            userId: parentId,
-            fromUserId,
+            userId: upline,
+            fromUserId: userId,
             level: level + 1,
             amount: commission,
           },
         });
-
-        level++;
       }
+
+      const next = await prisma.user.findUnique({
+        where: { id: upline },
+        select: { referredBy: true },
+      });
+
+      upline = next?.referredBy;
+      level++;
     }
 
-    await distributeLevelIncome(userId, instantRoi);
-
-    // -------------------------------------------------------
-    // 9) FINAL ACTIVE RECHECK
-    // -------------------------------------------------------
+    // 8) FINAL STATUS RECHECK
     await updateUserActiveStatus(userId);
 
     return Response.json({ success: true });
-
   } catch (err) {
-    console.error("Deposit Approve ERROR:", err);
+    console.error("❌ Approve ERROR DEBUG:", err);
     return Response.json({ error: "Server error" }, { status: 500 });
   }
 }
