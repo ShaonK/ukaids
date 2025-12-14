@@ -14,7 +14,7 @@ export async function POST(req) {
       );
     }
 
-    // 🔐 AUTH (same as middleware)
+    // 🔐 AUTH
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 
@@ -41,7 +41,7 @@ export async function POST(req) {
     }
 
     await prisma.$transaction(async (tx) => {
-      // 1️⃣ WALLET
+      // 1️⃣ WALLET FETCH
       const wallet = await tx.wallet.findUnique({
         where: { userId },
       });
@@ -55,11 +55,12 @@ export async function POST(req) {
         where: { userId, isActive: true },
       });
 
-      // 3️⃣ REFUND OLD PACKAGE → RETURN WALLET
+      // 3️⃣ CLOSE OLD PACKAGE + REFUND
       if (activeUserPackage) {
         const returnBefore = wallet.returnWallet;
         const refundAmount = activeUserPackage.amount;
 
+        // return old package amount
         await tx.wallet.update({
           where: { userId },
           data: {
@@ -81,6 +82,7 @@ export async function POST(req) {
           },
         });
 
+        // close old package
         await tx.userPackage.update({
           where: { id: activeUserPackage.id },
           data: {
@@ -110,17 +112,17 @@ export async function POST(req) {
           balanceAfter: mainBefore - newPackage.amount,
           source: "package-upgrade",
           referenceId: newPackage.id,
-          note: "New package purchase",
+          note: "New package purchase (upgrade)",
         },
       });
 
-      // 5️⃣ ADD TO DEPOSIT WALLET  ✅ FIX
+      // 5️⃣ 🔥 REPLACE DEPOSIT WALLET (NO MERGE)
       const depositBefore = wallet.depositWallet;
 
       await tx.wallet.update({
         where: { userId },
         data: {
-          depositWallet: { increment: newPackage.amount },
+          depositWallet: newPackage.amount, // ✅ REPLACED
         },
       });
 
@@ -131,10 +133,10 @@ export async function POST(req) {
           direction: "CREDIT",
           amount: newPackage.amount,
           balanceBefore: depositBefore,
-          balanceAfter: depositBefore + newPackage.amount,
+          balanceAfter: newPackage.amount,
           source: "package-upgrade",
           referenceId: newPackage.id,
-          note: "Deposit added for upgraded package",
+          note: "Deposit replaced on package upgrade",
         },
       });
 
