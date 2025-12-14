@@ -6,33 +6,35 @@ export default function TaskProgress({ task, onStart, loading }) {
   const [countdown, setCountdown] = useState("");
 
   const isReady = task?.earning?.isReady === true;
-  const nextRun = task?.earning?.nextRun;
+  const nextRunMs = task?.earning?.nextRunMs;
 
   useEffect(() => {
-    if (!nextRun || isReady) {
+    if (!nextRunMs || isReady) {
       setCountdown("");
       return;
     }
 
     const timer = setInterval(() => {
-      const now = new Date();
-      const run = new Date(nextRun);
-      const diff = run - now;
+      const diffMs = nextRunMs - Date.now();
 
-      if (diff <= 0) {
+      if (diffMs <= 0) {
         setCountdown("00:00");
       } else {
-        const m = Math.floor(diff / 1000 / 60);
-        const s = Math.floor((diff / 1000) % 60);
-        setCountdown(`${m}m ${s}s`);
+        const totalSec = Math.floor(diffMs / 1000);
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+
+        setCountdown(
+          `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+        );
       }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [nextRun, isReady]);
+  }, [nextRunMs, isReady]);
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow">
+    <div className="bg-white p-4 rounded-lg shadow mt-6">
       <button
         disabled={!isReady || loading}
         onClick={onStart}
@@ -45,7 +47,7 @@ export default function TaskProgress({ task, onStart, loading }) {
         {loading ? "Processing…" : isReady ? "Start Now" : "Task Locked"}
       </button>
 
-      {!isReady && (
+      {!isReady && countdown && (
         <p className="text-center mt-3 text-gray-600">
           Next task in: <strong>{countdown}</strong>
         </p>

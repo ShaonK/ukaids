@@ -1,3 +1,4 @@
+// app/api/user/package/upgrade/route.js
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -17,8 +18,8 @@ export async function POST(req) {
     // 🔐 AUTH
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
-
     const user = await verifyUserFromToken(token);
+
     if (!user) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -28,7 +29,7 @@ export async function POST(req) {
 
     const userId = user.id;
 
-    // 🔎 PACKAGE CHECK
+    // 🔎 Load new package
     const newPackage = await prisma.package.findUnique({
       where: { id: packageId },
     });
@@ -41,7 +42,7 @@ export async function POST(req) {
     }
 
     await prisma.$transaction(async (tx) => {
-      // 1️⃣ WALLET FETCH
+      // 1️⃣ Wallet check
       const wallet = await tx.wallet.findUnique({
         where: { userId },
       });
@@ -50,41 +51,22 @@ export async function POST(req) {
         throw new Error("Insufficient balance");
       }
 
-      // 2️⃣ CURRENT ACTIVE PACKAGE
-      const activeUserPackage = await tx.userPackage.findFirst({
+      // 2️⃣ Active package
+      const activePkg = await tx.userPackage.findFirst({
         where: { userId, isActive: true },
       });
 
-      // 3️⃣ CLOSE OLD PACKAGE + REFUND
-      if (activeUserPackage) {
-        const returnBefore = wallet.returnWallet;
-        const refundAmount = activeUserPackage.amount;
-
-        // return old package amount
+      // 3️⃣ Refund old package → return wallet
+      if (activePkg) {
         await tx.wallet.update({
           where: { userId },
           data: {
-            returnWallet: { increment: refundAmount },
+            returnWallet: { increment: activePkg.amount },
           },
         });
 
-        await tx.walletTransaction.create({
-          data: {
-            userId,
-            walletType: "RETURN",
-            direction: "CREDIT",
-            amount: refundAmount,
-            balanceBefore: returnBefore,
-            balanceAfter: returnBefore + refundAmount,
-            source: "package-upgrade",
-            referenceId: activeUserPackage.id,
-            note: "Refund previous package on upgrade",
-          },
-        });
-
-        // close old package
         await tx.userPackage.update({
-          where: { id: activeUserPackage.id },
+          where: { id: activePkg.id },
           data: {
             isActive: false,
             endedAt: new Date(),
@@ -92,9 +74,7 @@ export async function POST(req) {
         });
       }
 
-      // 4️⃣ DEDUCT MAIN WALLET
-      const mainBefore = wallet.mainWallet;
-
+      // 4️⃣ Debit account wallet
       await tx.wallet.update({
         where: { userId },
         data: {
@@ -102,45 +82,15 @@ export async function POST(req) {
         },
       });
 
-      await tx.walletTransaction.create({
-        data: {
-          userId,
-          walletType: "ACCOUNT",
-          direction: "DEBIT",
-          amount: newPackage.amount,
-          balanceBefore: mainBefore,
-          balanceAfter: mainBefore - newPackage.amount,
-          source: "package-upgrade",
-          referenceId: newPackage.id,
-          note: "New package purchase (upgrade)",
-        },
-      });
-
-      // 5️⃣ 🔥 REPLACE DEPOSIT WALLET (NO MERGE)
-      const depositBefore = wallet.depositWallet;
-
+      // 5️⃣ Update deposit wallet = active package amount (NO MERGE)
       await tx.wallet.update({
         where: { userId },
         data: {
-          depositWallet: newPackage.amount, // ✅ REPLACED
+          depositWallet: newPackage.amount,
         },
       });
 
-      await tx.walletTransaction.create({
-        data: {
-          userId,
-          walletType: "DEPOSIT",
-          direction: "CREDIT",
-          amount: newPackage.amount,
-          balanceBefore: depositBefore,
-          balanceAfter: newPackage.amount,
-          source: "package-upgrade",
-          referenceId: newPackage.id,
-          note: "Deposit replaced on package upgrade",
-        },
-      });
-
-      // 6️⃣ CREATE NEW ACTIVE PACKAGE
+      // 6️⃣ Create new active package
       await tx.userPackage.create({
         data: {
           userId,
@@ -153,8 +103,9 @@ export async function POST(req) {
     });
 
     return NextResponse.json({ success: true });
+
   } catch (err) {
-    console.error(err);
+    console.error("UPGRADE ERROR:", err);
     return NextResponse.json(
       { error: err.message || "Upgrade failed" },
       { status: 500 }

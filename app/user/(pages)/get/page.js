@@ -11,45 +11,58 @@ export default function GetPage() {
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // 🔥 Load task status (NO CACHE)
   async function loadStatus() {
     try {
-      const res = await fetch("/api/user/task/status");
+      const res = await fetch("/api/user/task/status", {
+        cache: "no-store",
+      });
       const data = await res.json();
-      if (res.ok) setTask(data);
-    } catch {}
+      if (res.ok) {
+        setTask(data);
+      }
+    } catch (err) {
+      console.error("Failed to load task status", err);
+    }
   }
 
+  // 🔁 Poll status
   useEffect(() => {
     loadStatus();
     const timer = setInterval(loadStatus, 5000);
     return () => clearInterval(timer);
   }, []);
 
+  // ▶️ Start task
   async function startTask() {
     if (loading) return;
     if (!task?.earning?.isReady) return;
 
     setLoading(true);
 
-    const res = await fetch("/api/user/task/complete", { method: "POST" });
-    const data = await res.json();
+    try {
+      const res = await fetch("/api/user/task/complete", {
+        method: "POST",
+        cache: "no-store",
+      });
+      const data = await res.json();
 
-    if (!data.success) {
-      toast.error(data.error);
+      if (!res.ok || !data.success) {
+        toast.error(data.error || "Task failed");
+        return;
+      }
+
+      toast.success("Task completed!");
+
+      // 🔥 Always reload fresh status from server
+      await loadStatus();
+
+    } catch (err) {
+      console.error(err);
+      toast.error("Server error");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    toast.success("Task completed!");
-
-    // UI lock immediately
-    setTask((p) => ({
-      ...p,
-      earning: { ...p.earning, isReady: false }
-    }));
-
-    await loadStatus();
-    setLoading(false);
   }
 
   return (

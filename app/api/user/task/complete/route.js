@@ -1,9 +1,13 @@
 // app/api/user/task/complete/route.js
+export const dynamic = "force-dynamic";
+
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
-import { updateUserActiveStatus } from "@/lib/updateUserActiveStatus";
-import { onRoiGenerated } from "@/lib/onRoiGenerated";
 import { creditWallet } from "@/lib/walletService";
+import { onRoiGenerated } from "@/lib/onRoiGenerated";
+import { updateUserActiveStatus } from "@/lib/updateUserActiveStatus";
+
+const INTERVAL_MS = 60 * 1000; // 🔧 DEV = 1 minute
 
 export async function POST() {
   try {
@@ -12,20 +16,24 @@ export async function POST() {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 0️⃣ User status check
+    // 🔹 User status check
     const liveUser = await prisma.user.findUnique({
       where: { id: user.id },
-      select: { isActive: true, isBlocked: true, isSuspended: true },
+      select: {
+        isActive: true,
+        isBlocked: true,
+        isSuspended: true,
+      },
     });
 
     if (!liveUser.isActive || liveUser.isBlocked || liveUser.isSuspended) {
       return Response.json(
-        { error: "Inactive account. No ROI allowed." },
+        { error: "Inactive account" },
         { status: 403 }
       );
     }
 
-    // 1️⃣ Load active package
+    // 🔹 Active package
     const activePackage = await prisma.userPackage.findFirst({
       where: {
         userId: user.id,
@@ -46,19 +54,23 @@ export async function POST() {
       );
     }
 
-    // 2️⃣ ROI timing validation
-    const now = new Date();
-    const lastRun = activePackage.lastRoiAt || activePackage.startedAt;
-    const nextRun = new Date(lastRun.getTime() + 60 * 1000);
+    const nowMs = Date.now();
 
-    if (now < nextRun) {
+    const lastRunMs = activePackage.lastRoiAt
+      ? new Date(activePackage.lastRoiAt).getTime()
+      : new Date(activePackage.startedAt).getTime();
+
+    const nextRunMs = lastRunMs + INTERVAL_MS;
+
+    // 🔒 Cooldown check
+    if (nowMs < nextRunMs) {
       return Response.json(
-        { error: "ROI not ready yet" },
+        { error: "Task not ready yet" },
         { status: 429 }
       );
     }
 
-    // 3️⃣ ROI calculation (PACKAGE BASED)
+    // 🔹 ROI calculation (PACKAGE BASED)
     const roiPercent = 0.02;
     const roiUnit = Number((activePackage.amount * roiPercent).toFixed(6));
 
@@ -72,10 +84,9 @@ export async function POST() {
       );
     }
 
-    const remaining = maxEarnable - prevTotal;
-    const payout = Math.min(roiUnit, remaining);
+    const payout = Math.min(roiUnit, maxEarnable - prevTotal);
 
-    // 4️⃣ CREDIT ROI WALLET (AUDITED)
+    // 🔹 Credit ROI wallet
     await creditWallet({
       userId: user.id,
       walletType: "ROI",
@@ -84,25 +95,24 @@ export async function POST() {
       note: `ROI from package ${activePackage.package.name}`,
     });
 
-    // 5️⃣ Update package ROI progress
+    // 🔹 Update package progress & timer
     await prisma.userPackage.update({
       where: { id: activePackage.id },
       data: {
         totalEarned: { increment: payout },
-        lastRoiAt: now,
+        lastRoiAt: new Date(nowMs), // 🔥 ONLY TIMER SOURCE
       },
     });
 
-    // 6️⃣ ROI HISTORY (FIXED ✅)
+    // 🔹 ROI history
     const roiHistory = await prisma.roiHistory.create({
       data: {
         userId: user.id,
         amount: payout,
-        // ❌ earningId REMOVED
       },
     });
 
-    // 7️⃣ LEVEL INCOME (UNCHANGED)
+    // 🔹 Level income
     await onRoiGenerated({
       roiUserId: user.id,
       roiAmount: payout,
@@ -110,7 +120,6 @@ export async function POST() {
       source: "task",
     });
 
-    // 8️⃣ Update active status
     await updateUserActiveStatus(user.id);
 
     return Response.json({ success: true });

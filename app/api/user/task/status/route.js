@@ -1,6 +1,10 @@
 // app/api/user/task/status/route.js
+export const dynamic = "force-dynamic";
+
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
+
+const INTERVAL_MS = 60 * 1000; // 🔧 DEV = 1 minute
 
 export async function GET() {
   try {
@@ -9,7 +13,7 @@ export async function GET() {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 1️⃣ Active package fetch (LATEST)
+    // 🔹 Active package
     const activePackage = await prisma.userPackage.findFirst({
       where: {
         userId: user.id,
@@ -24,26 +28,26 @@ export async function GET() {
       return Response.json({
         success: true,
         hasEarning: false,
-        isReady: false,
       });
     }
 
-    // 2️⃣ ROI timing (every 1 minute – same as before)
-    const now = new Date();
-    const lastRun = activePackage.lastRoiAt || activePackage.startedAt;
-    const nextRun = new Date(lastRun.getTime() + 60 * 1000);
+    const nowMs = Date.now();
 
-    const isReady = now >= nextRun;
+    const lastRunMs = activePackage.lastRoiAt
+      ? new Date(activePackage.lastRoiAt).getTime()
+      : new Date(activePackage.startedAt).getTime();
+
+    const nextRunMs = lastRunMs + INTERVAL_MS;
+    const isReady = nowMs >= nextRunMs;
 
     return Response.json({
       success: true,
       hasEarning: true,
       earning: {
-        packageId: activePackage.packageId,
+        isReady,
+        nextRunMs,
         packageAmount: Number(activePackage.amount),
         roiPercent: 2,
-        nextRun,
-        isReady,
         totalEarned: Number(activePackage.totalEarned),
       },
     });
