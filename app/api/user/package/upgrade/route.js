@@ -1,149 +1,161 @@
-// app/api/user/package/upgrade/route.js
 import prisma from "@/lib/prisma";
-import { getUser } from "@/lib/getUser";
-import { debitWallet, creditWallet } from "@/lib/walletService";
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { verifyUserFromToken } from "@/lib/auth";
 
 export async function POST(req) {
-    try {
-        // ---------------------------------
-        // 1) AUTH USER
-        // ---------------------------------
-        const user = await getUser();
-        if (!user) {
-            return Response.json({ error: "Unauthorized" }, { status: 401 });
-        }
+  try {
+    const { packageId } = await req.json();
 
-        const body = await req.json();
-        const { packageId } = body;
-
-        if (!packageId) {
-            return Response.json(
-                { error: "Package ID missing" },
-                { status: 400 }
-            );
-        }
-
-        const userId = user.id;
-
-        // ---------------------------------
-        // 2) Load NEW package
-        // ---------------------------------
-        const newPackage = await prisma.package.findUnique({
-            where: { id: Number(packageId) },
-        });
-
-        if (!newPackage || !newPackage.isActive) {
-            return Response.json(
-                { error: "Invalid or inactive package" },
-                { status: 400 }
-            );
-        }
-
-        // ---------------------------------
-        // 3) Load ACTIVE user package
-        // ---------------------------------
-        const activeUserPackage = await prisma.userPackage.findFirst({
-            where: {
-                userId,
-                isActive: true,
-            },
-            include: {
-                package: true,
-            },
-        });
-
-        if (!activeUserPackage) {
-            return Response.json(
-                { error: "No active package found" },
-                { status: 400 }
-            );
-        }
-
-        const currentPackage = activeUserPackage.package;
-
-        // ---------------------------------
-        // 4) POSITION-BASED VALIDATION
-        // ---------------------------------
-        if (newPackage.position <= currentPackage.position) {
-            return Response.json(
-                { error: "Upgrade must be to a higher package" },
-                { status: 400 }
-            );
-        }
-
-        // ---------------------------------
-        // 5) Check ACCOUNT wallet balance
-        // ---------------------------------
-        const wallet = await prisma.wallet.findUnique({
-            where: { userId },
-        });
-
-        if (!wallet || wallet.mainWallet < newPackage.amount) {
-            return Response.json(
-                { error: "Insufficient account balance" },
-                { status: 400 }
-            );
-        }
-
-        // ---------------------------------
-        // 6) ATOMIC TRANSACTION
-        // ---------------------------------
-        await prisma.$transaction(async () => {
-            // 6.1 Debit ACCOUNT wallet (new package price)
-            await debitWallet({
-                userId,
-                walletType: "ACCOUNT",
-                amount: newPackage.amount,
-                source: "PACKAGE_UPGRADE",
-                note: `Upgrade to ${newPackage.name}`,
-            });
-
-            // 6.2 Return OLD package amount → RETURN wallet
-            await creditWallet({
-                userId,
-                walletType: "RETURN",
-                amount: activeUserPackage.amount,
-                source: "PACKAGE_UPGRADE",
-                note: `Returned old package (${currentPackage.name})`,
-            });
-
-            // 6.3 Credit DEPOSIT wallet → new package amount
-            await creditWallet({
-                userId,
-                walletType: "DEPOSIT",
-                amount: newPackage.amount,
-                source: "PACKAGE_UPGRADE",
-                note: `Activated new package (${newPackage.name})`,
-            });
-
-            // 6.4 Close old package
-            await prisma.userPackage.update({
-                where: { id: activeUserPackage.id },
-                data: {
-                    isActive: false,
-                    endedAt: new Date(),
-                },
-            });
-
-            // 6.5 Create new active package
-            await prisma.userPackage.create({
-                data: {
-                    userId,
-                    packageId: newPackage.id,
-                    amount: newPackage.amount,
-                    source: "self",
-                    isActive: true,
-                },
-            });
-        });
-
-        return Response.json({ success: true });
-
-    } catch (err) {
-        console.error("❌ PACKAGE UPGRADE ERROR:", err);
-        return Response.json(
-            { error: "Server error" },
-            { status: 500 }
-        );
+    if (!packageId) {
+      return NextResponse.json(
+        { error: "Package ID missing" },
+        { status: 400 }
+      );
     }
+
+    // 🔐 AUTH (same as middleware)
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
+
+    const user = await verifyUserFromToken(token);
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const userId = user.id;
+
+    // 🔎 PACKAGE CHECK
+    const newPackage = await prisma.package.findUnique({
+      where: { id: packageId },
+    });
+
+    if (!newPackage) {
+      return NextResponse.json(
+        { error: "Package not found" },
+        { status: 404 }
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1️⃣ WALLET
+      const wallet = await tx.wallet.findUnique({
+        where: { userId },
+      });
+
+      if (!wallet || wallet.mainWallet < newPackage.amount) {
+        throw new Error("Insufficient balance");
+      }
+
+      // 2️⃣ CURRENT ACTIVE PACKAGE
+      const activeUserPackage = await tx.userPackage.findFirst({
+        where: { userId, isActive: true },
+      });
+
+      // 3️⃣ REFUND OLD PACKAGE → RETURN WALLET
+      if (activeUserPackage) {
+        const returnBefore = wallet.returnWallet;
+        const refundAmount = activeUserPackage.amount;
+
+        await tx.wallet.update({
+          where: { userId },
+          data: {
+            returnWallet: { increment: refundAmount },
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            userId,
+            walletType: "RETURN",
+            direction: "CREDIT",
+            amount: refundAmount,
+            balanceBefore: returnBefore,
+            balanceAfter: returnBefore + refundAmount,
+            source: "package-upgrade",
+            referenceId: activeUserPackage.id,
+            note: "Refund previous package on upgrade",
+          },
+        });
+
+        await tx.userPackage.update({
+          where: { id: activeUserPackage.id },
+          data: {
+            isActive: false,
+            endedAt: new Date(),
+          },
+        });
+      }
+
+      // 4️⃣ DEDUCT MAIN WALLET
+      const mainBefore = wallet.mainWallet;
+
+      await tx.wallet.update({
+        where: { userId },
+        data: {
+          mainWallet: { decrement: newPackage.amount },
+        },
+      });
+
+      await tx.walletTransaction.create({
+        data: {
+          userId,
+          walletType: "ACCOUNT",
+          direction: "DEBIT",
+          amount: newPackage.amount,
+          balanceBefore: mainBefore,
+          balanceAfter: mainBefore - newPackage.amount,
+          source: "package-upgrade",
+          referenceId: newPackage.id,
+          note: "New package purchase",
+        },
+      });
+
+      // 5️⃣ ADD TO DEPOSIT WALLET  ✅ FIX
+      const depositBefore = wallet.depositWallet;
+
+      await tx.wallet.update({
+        where: { userId },
+        data: {
+          depositWallet: { increment: newPackage.amount },
+        },
+      });
+
+      await tx.walletTransaction.create({
+        data: {
+          userId,
+          walletType: "DEPOSIT",
+          direction: "CREDIT",
+          amount: newPackage.amount,
+          balanceBefore: depositBefore,
+          balanceAfter: depositBefore + newPackage.amount,
+          source: "package-upgrade",
+          referenceId: newPackage.id,
+          note: "Deposit added for upgraded package",
+        },
+      });
+
+      // 6️⃣ CREATE NEW ACTIVE PACKAGE
+      await tx.userPackage.create({
+        data: {
+          userId,
+          packageId: newPackage.id,
+          amount: newPackage.amount,
+          isActive: true,
+          source: "self",
+        },
+      });
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json(
+      { error: err.message || "Upgrade failed" },
+      { status: 500 }
+    );
+  }
 }

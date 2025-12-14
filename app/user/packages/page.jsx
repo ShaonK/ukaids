@@ -12,6 +12,9 @@ export default function PackagesPage() {
   const [wallet, setWallet] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // ---------------------------
+  // LOAD DATA
+  // ---------------------------
   useEffect(() => {
     async function loadData() {
       try {
@@ -25,11 +28,11 @@ export default function PackagesPage() {
         const activeData = activeRes.ok ? await activeRes.json() : null;
         const walletData = await walletRes.json();
 
-        setPackages(pkgData);
+        setPackages(Array.isArray(pkgData) ? pkgData : []);
         setActivePackage(activeData);
-        setWallet(walletData);
+        setWallet(walletData?.wallet ?? walletData);
       } catch (e) {
-        console.error(e);
+        console.error("Failed to load packages:", e);
       } finally {
         setLoading(false);
       }
@@ -39,9 +42,20 @@ export default function PackagesPage() {
   }, []);
 
   // ---------------------------
-  // BUY PACKAGE (only when no active package)
+  // BUY PACKAGE (ID based)
   // ---------------------------
-  const buyPackage = async (pkg) => {
+  const buyPackage = async (packageId) => {
+    if (!packageId) {
+      alert("Package ID missing");
+      return;
+    }
+
+    const pkg = packages.find((p) => p.id === packageId);
+    if (!pkg) {
+      alert("Package not found");
+      return;
+    }
+
     if (!wallet || wallet.mainWallet < pkg.amount) {
       router.push("/user/mine/recharge");
       return;
@@ -51,7 +65,7 @@ export default function PackagesPage() {
       const res = await fetch("/api/user/package/deposit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packageId: pkg.id }),
+        body: JSON.stringify({ packageId }),
       });
 
       const data = await res.json();
@@ -69,9 +83,20 @@ export default function PackagesPage() {
   };
 
   // ---------------------------
-  // UPGRADE PACKAGE (when active exists)
+  // UPGRADE PACKAGE (ID based)
   // ---------------------------
-  const upgradePackage = async (pkg) => {
+  const upgradePackage = async (packageId) => {
+    if (!packageId) {
+      alert("Package ID missing");
+      return;
+    }
+
+    const pkg = packages.find((p) => p.id === packageId);
+    if (!pkg) {
+      alert("Package not found");
+      return;
+    }
+
     if (!wallet || wallet.mainWallet < pkg.amount) {
       router.push("/user/mine/recharge");
       return;
@@ -81,7 +106,7 @@ export default function PackagesPage() {
       const res = await fetch("/api/user/package/upgrade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packageId: pkg.id }),
+        body: JSON.stringify({ packageId }),
       });
 
       const data = await res.json();
@@ -98,6 +123,9 @@ export default function PackagesPage() {
     }
   };
 
+  // ---------------------------
+  // LOADING
+  // ---------------------------
   if (loading) {
     return (
       <div className="text-center text-gray-400 py-20">
@@ -106,6 +134,9 @@ export default function PackagesPage() {
     );
   }
 
+  // ---------------------------
+  // UI
+  // ---------------------------
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       <h1 className="text-xl font-semibold text-white mb-4">
@@ -117,10 +148,10 @@ export default function PackagesPage() {
           <PackageRow
             key={pkg.id}
             pkg={pkg}
+            packages={packages}
             activePackage={activePackage}
-            wallet={wallet}
-            onBuy={() => buyPackage(pkg)}
-            onUpgrade={() => upgradePackage(pkg)}
+            onBuy={buyPackage}         // 🔥 ID based
+            onUpgrade={upgradePackage} // 🔥 ID based
           />
         ))}
       </div>

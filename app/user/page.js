@@ -124,6 +124,11 @@ export default function DashboardPage() {
             wallet.salaryWallet
           )}
         />
+        <UserAmountSummaryCard
+          title="Return Wallet"
+          amount={fmt(wallet.returnWallet)}
+        />
+
       </div>
 
       {/* OTHER DASHBOARD SECTIONS */}
