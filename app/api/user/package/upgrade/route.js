@@ -1,21 +1,32 @@
 // app/api/user/package/upgrade/route.js
 import prisma from "@/lib/prisma";
+import { getUser } from "@/lib/getUser";
 import { debitWallet, creditWallet } from "@/lib/walletService";
 
 export async function POST(req) {
     try {
-        const body = await req.json();
-        const { userId, packageId } = body;
+        // ---------------------------------
+        // 1) AUTH USER
+        // ---------------------------------
+        const user = await getUser();
+        if (!user) {
+            return Response.json({ error: "Unauthorized" }, { status: 401 });
+        }
 
-        if (!userId || !packageId) {
+        const body = await req.json();
+        const { packageId } = body;
+
+        if (!packageId) {
             return Response.json(
-                { error: "Missing userId or packageId" },
+                { error: "Package ID missing" },
                 { status: 400 }
             );
         }
 
+        const userId = user.id;
+
         // ---------------------------------
-        // 1) Load NEW package
+        // 2) Load NEW package
         // ---------------------------------
         const newPackage = await prisma.package.findUnique({
             where: { id: Number(packageId) },
@@ -29,15 +40,15 @@ export async function POST(req) {
         }
 
         // ---------------------------------
-        // 2) Load ACTIVE user package
+        // 3) Load ACTIVE user package
         // ---------------------------------
         const activeUserPackage = await prisma.userPackage.findFirst({
             where: {
-                userId: Number(userId),
+                userId,
                 isActive: true,
             },
             include: {
-                package: true, // 🔴 needed for position check
+                package: true,
             },
         });
 
@@ -51,7 +62,7 @@ export async function POST(req) {
         const currentPackage = activeUserPackage.package;
 
         // ---------------------------------
-        // 3) POSITION BASED UPGRADE VALIDATION ✅
+        // 4) POSITION-BASED VALIDATION
         // ---------------------------------
         if (newPackage.position <= currentPackage.position) {
             return Response.json(
@@ -61,10 +72,10 @@ export async function POST(req) {
         }
 
         // ---------------------------------
-        // 4) Check ACCOUNT wallet balance
+        // 5) Check ACCOUNT wallet balance
         // ---------------------------------
         const wallet = await prisma.wallet.findUnique({
-            where: { userId: Number(userId) },
+            where: { userId },
         });
 
         if (!wallet || wallet.mainWallet < newPackage.amount) {
@@ -75,10 +86,10 @@ export async function POST(req) {
         }
 
         // ---------------------------------
-        // 5) ATOMIC TRANSACTION
+        // 6) ATOMIC TRANSACTION
         // ---------------------------------
         await prisma.$transaction(async () => {
-            // 5.1 Debit ACCOUNT wallet (new package price)
+            // 6.1 Debit ACCOUNT wallet (new package price)
             await debitWallet({
                 userId,
                 walletType: "ACCOUNT",
@@ -87,7 +98,7 @@ export async function POST(req) {
                 note: `Upgrade to ${newPackage.name}`,
             });
 
-            // 5.2 Return OLD package amount → RETURN wallet
+            // 6.2 Return OLD package amount → RETURN wallet
             await creditWallet({
                 userId,
                 walletType: "RETURN",
@@ -96,7 +107,7 @@ export async function POST(req) {
                 note: `Returned old package (${currentPackage.name})`,
             });
 
-            // 5.3 Credit DEPOSIT wallet → new package amount
+            // 6.3 Credit DEPOSIT wallet → new package amount
             await creditWallet({
                 userId,
                 walletType: "DEPOSIT",
@@ -105,7 +116,7 @@ export async function POST(req) {
                 note: `Activated new package (${newPackage.name})`,
             });
 
-            // 5.4 Close old package
+            // 6.4 Close old package
             await prisma.userPackage.update({
                 where: { id: activeUserPackage.id },
                 data: {
@@ -114,7 +125,7 @@ export async function POST(req) {
                 },
             });
 
-            // 5.5 Create new active package
+            // 6.5 Create new active package
             await prisma.userPackage.create({
                 data: {
                     userId,
@@ -124,9 +135,6 @@ export async function POST(req) {
                     isActive: true,
                 },
             });
-
-            // ❌ depositHistory intentionally removed
-            // Package upgrade ≠ blockchain deposit
         });
 
         return Response.json({ success: true });
@@ -134,7 +142,7 @@ export async function POST(req) {
     } catch (err) {
         console.error("❌ PACKAGE UPGRADE ERROR:", err);
         return Response.json(
-            { error: err.message || "Server error" },
+            { error: "Server error" },
             { status: 500 }
         );
     }

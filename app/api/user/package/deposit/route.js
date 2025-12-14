@@ -1,15 +1,27 @@
 // app/api/user/package/deposit/route.js
 import prisma from "@/lib/prisma";
+import { getUser } from "@/lib/getUser";
 import { debitWallet, creditWallet } from "@/lib/walletService";
 
 export async function POST(req) {
     try {
-        const body = await req.json();
-        const { userId, packageId } = body;
-
-        if (!userId || !packageId) {
-            return Response.json({ error: "Missing data" }, { status: 400 });
+        // 🔐 AUTH USER
+        const user = await getUser();
+        if (!user) {
+            return Response.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const body = await req.json();
+        const { packageId } = body;
+
+        if (!packageId) {
+            return Response.json(
+                { error: "Package ID is required" },
+                { status: 400 }
+            );
+        }
+
+        const userId = user.id;
 
         // ---------------------------------
         // 1) Load package
@@ -19,10 +31,13 @@ export async function POST(req) {
         });
 
         if (!pkg || !pkg.isActive) {
-            return Response.json({ error: "Invalid package" }, { status: 400 });
+            return Response.json(
+                { error: "Invalid or inactive package" },
+                { status: 400 }
+            );
         }
 
-        const amount = pkg.amount;
+        const amount = Number(pkg.amount);
 
         // ---------------------------------
         // 2) Load wallet
@@ -32,14 +47,20 @@ export async function POST(req) {
         });
 
         if (!wallet || wallet.mainWallet < amount) {
-            return Response.json({ error: "Insufficient balance" }, { status: 400 });
+            return Response.json(
+                { error: "Insufficient account balance" },
+                { status: 400 }
+            );
         }
 
         // ---------------------------------
         // 3) Check active package
         // ---------------------------------
         const activePkg = await prisma.userPackage.findFirst({
-            where: { userId, isActive: true },
+            where: {
+                userId,
+                isActive: true,
+            },
         });
 
         if (activePkg) {
@@ -50,10 +71,10 @@ export async function POST(req) {
         }
 
         // ---------------------------------
-        // 4) TRANSACTION (ATOMIC)
+        // 4) ATOMIC TRANSACTION
         // ---------------------------------
         await prisma.$transaction(async () => {
-            // DEBIT account balance
+            // 4.1 Debit ACCOUNT wallet
             await debitWallet({
                 userId,
                 walletType: "ACCOUNT",
@@ -62,7 +83,7 @@ export async function POST(req) {
                 note: `Package purchase (${pkg.name})`,
             });
 
-            // CREDIT deposit wallet
+            // 4.2 Credit DEPOSIT wallet
             await creditWallet({
                 userId,
                 walletType: "DEPOSIT",
@@ -71,7 +92,7 @@ export async function POST(req) {
                 note: `Package activated (${pkg.name})`,
             });
 
-            // create user package
+            // 4.3 Create active user package
             await prisma.userPackage.create({
                 data: {
                     userId,
@@ -81,14 +102,15 @@ export async function POST(req) {
                     isActive: true,
                 },
             });
-
-           
         });
 
         return Response.json({ success: true });
 
     } catch (err) {
         console.error("❌ PACKAGE DEPOSIT ERROR:", err);
-        return Response.json({ error: "Server error" }, { status: 500 });
+        return Response.json(
+            { error: "Server error" },
+            { status: 500 }
+        );
     }
 }

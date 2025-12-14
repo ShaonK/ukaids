@@ -56,23 +56,23 @@ model User {
   statusHistory UserStatusHistory[]
 
   // NEW
-  userPackages      UserPackage[]
+  userPackages       UserPackage[]
   walletTransactions WalletTransaction[]
-  sentTransfers     BalanceTransfer[] @relation("Sender")
-  receivedTransfers BalanceTransfer[] @relation("Receiver")
-  withdrawAddresses WithdrawAddress[]
-  withdrawRequests  WithdrawRequest[]
+  sentTransfers      BalanceTransfer[]   @relation("Sender")
+  receivedTransfers  BalanceTransfer[]   @relation("Receiver")
+  withdrawAddresses  WithdrawAddress[]
+  withdrawRequests   WithdrawRequest[]
 }
 
 model UserStatusHistory {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   userId    Int
   status    String
-  startDate DateTime @default(now())
+  startDate DateTime  @default(now())
   endDate   DateTime?
   reason    String?
   closedAt  DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id])
 }
@@ -101,21 +101,21 @@ model Wallet {
  */
 
 model WalletTransaction {
-  id            Int      @id @default(autoincrement())
-  userId        Int
+  id     Int @id @default(autoincrement())
+  userId Int
 
-  walletType    String   // ACCOUNT | DEPOSIT | ROI | LEVEL | REFERRAL | RETURN
-  direction     String   // CREDIT | DEBIT
-  amount        Float
+  walletType String // ACCOUNT | DEPOSIT | ROI | LEVEL | REFERRAL | RETURN
+  direction  String // CREDIT | DEBIT
+  amount     Float
 
   balanceBefore Float
   balanceAfter  Float
 
-  source        String   // deposit | withdraw | transfer | roi | level | admin
-  referenceId   Int?
-  note          String?
+  source      String // deposit | withdraw | transfer | roi | level | admin
+  referenceId Int?
+  note        String?
 
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
 }
@@ -125,11 +125,11 @@ model WalletTransaction {
  */
 
 model Package {
-  id        Int     @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   name      String
   amount    Float
   position  Int
-  isActive  Boolean @default(true)
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
   userPackages     UserPackage[]
@@ -137,19 +137,21 @@ model Package {
 }
 
 model UserPackage {
-  id        Int      @id @default(autoincrement())
+  id        Int   @id @default(autoincrement())
   userId    Int
   packageId Int
   amount    Float
 
-  isActive  Boolean @default(true)
-  startedAt DateTime @default(now())
+  isActive  Boolean   @default(true)
+  startedAt DateTime  @default(now())
   endedAt   DateTime?
 
-  source    String // self | transfer | admin
+  source String // self | transfer | admin
 
-  user    User    @relation(fields: [userId], references: [id])
-  package Package @relation(fields: [packageId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+  package     Package   @relation(fields: [packageId], references: [id])
+  totalEarned Float     @default(0)
+  lastRoiAt   DateTime?
 
   @@index([userId, isActive])
 }
@@ -245,7 +247,7 @@ model WithdrawRequest {
   amount    Float
   address   String
   network   String
-  status    String   // pending | approved | rejected
+  status    String // pending | approved | rejected
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
@@ -256,11 +258,12 @@ model WithdrawAddress {
   userId    Int
   address   String
   network   String
-  isActive  Boolean @default(true)
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
 }
+
 model ApprovedWithdraw {
   id         Int      @id @default(autoincrement())
   userId     Int
@@ -280,7 +283,6 @@ model RejectedWithdraw {
 
   user User @relation(fields: [userId], references: [id])
 }
-
 
 /**
  * ---------------- USER TO USER TRANSFER ----------------
@@ -319,13 +321,14 @@ model UserDepositRoi {
 model RoiHistory {
   id        Int      @id @default(autoincrement())
   userId    Int
-  earningId Int
+  earningId Int? // 🔥 optional (important)
   amount    Float
   createdAt DateTime @default(now())
 
-  user    User       @relation(fields: [userId], references: [id])
-  earning RoiEarning @relation(fields: [earningId], references: [id])
+  user    User        @relation(fields: [userId], references: [id])
+  earning RoiEarning? @relation(fields: [earningId], references: [id])
 
+  // ✅ ADD THIS LINE
   levelIncomes RoiLevelIncome[]
 }
 
@@ -342,9 +345,8 @@ model RoiEarning {
   isActive    Boolean   @default(true)
   lastRunDate DateTime?
 
-  user    User    @relation(fields: [userId], references: [id])
-  deposit Deposit @relation(fields: [depositId], references: [id])
-
+  user         User         @relation(fields: [userId], references: [id])
+  deposit      Deposit      @relation(fields: [depositId], references: [id])
   roiHistories RoiHistory[]
 
   @@map("roiearning")

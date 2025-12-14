@@ -3,16 +3,16 @@ import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 import { updateUserActiveStatus } from "@/lib/updateUserActiveStatus";
 import { onRoiGenerated } from "@/lib/onRoiGenerated";
+import { creditWallet } from "@/lib/walletService";
 
 export async function POST() {
   try {
     const user = await getUser();
-    if (!user)
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const now = new Date();
-
-    // 0) Inactive user cannot run ROI task
+    // 0️⃣ User status check
     const liveUser = await prisma.user.findUnique({
       where: { id: user.id },
       select: { isActive: true, isBlocked: true, isSuspended: true },
@@ -25,91 +25,92 @@ export async function POST() {
       );
     }
 
-    // 1) Find earning ready for payout
-    const earning = await prisma.roiEarning.findFirst({
-      where: { userId: user.id, isActive: true, nextRun: { lte: now } },
-      orderBy: { id: "asc" },
+    // 1️⃣ Load active package
+    const activePackage = await prisma.userPackage.findFirst({
+      where: {
+        userId: user.id,
+        isActive: true,
+      },
+      include: {
+        package: true,
+      },
+      orderBy: {
+        startedAt: "desc",
+      },
     });
 
-    if (!earning) {
-      return Response.json({ error: "No ROI ready" }, { status: 400 });
+    if (!activePackage) {
+      return Response.json(
+        { error: "No active package" },
+        { status: 400 }
+      );
     }
 
-    // 2) Lock earning to prevent duplicate
-    const lock = await prisma.roiEarning.updateMany({
-      where: {
-        id: earning.id,
-        nextRun: earning.nextRun,
-        totalEarned: earning.totalEarned,
-      },
-      data: { nextRun: new Date(9999, 0, 1) },
-    });
+    // 2️⃣ ROI timing validation
+    const now = new Date();
+    const lastRun = activePackage.lastRoiAt || activePackage.startedAt;
+    const nextRun = new Date(lastRun.getTime() + 60 * 1000);
 
-    if (lock.count === 0) {
+    if (now < nextRun) {
       return Response.json(
-        { error: "Task already processed. Wait…" },
+        { error: "ROI not ready yet" },
         { status: 429 }
       );
     }
 
-    // 3) Calculate payout
-    const payoutUnit = Number(earning.amount);
-    const prevTotal = Number(earning.totalEarned);
-    const maxAllowed = Number(earning.maxEarnable);
+    // 3️⃣ ROI calculation (PACKAGE BASED)
+    const roiPercent = 0.02;
+    const roiUnit = Number((activePackage.amount * roiPercent).toFixed(6));
 
-    const remaining = Math.max(0, maxAllowed - prevTotal);
-    const payout = Math.min(payoutUnit, remaining);
-    const overflow = payoutUnit - payout;
+    const maxEarnable = Number((activePackage.amount * 2).toFixed(6));
+    const prevTotal = Number(activePackage.totalEarned);
 
-    // 4) Update wallet
-    await prisma.wallet.update({
-      where: { userId: user.id },
+    if (prevTotal >= maxEarnable) {
+      return Response.json(
+        { error: "ROI cap reached" },
+        { status: 400 }
+      );
+    }
+
+    const remaining = maxEarnable - prevTotal;
+    const payout = Math.min(roiUnit, remaining);
+
+    // 4️⃣ CREDIT ROI WALLET (AUDITED)
+    await creditWallet({
+      userId: user.id,
+      walletType: "ROI",
+      amount: payout,
+      source: "TASK_ROI",
+      note: `ROI from package ${activePackage.package.name}`,
+    });
+
+    // 5️⃣ Update package ROI progress
+    await prisma.userPackage.update({
+      where: { id: activePackage.id },
       data: {
-        roiWallet: { increment: payout },
-        ...(overflow > 0 ? { returnWallet: { increment: overflow } } : {}),
+        totalEarned: { increment: payout },
+        lastRoiAt: now,
       },
     });
 
-    // 5) Add ROI history
+    // 6️⃣ ROI HISTORY (FIXED ✅)
     const roiHistory = await prisma.roiHistory.create({
       data: {
         userId: user.id,
-        earningId: earning.id,
         amount: payout,
+        // ❌ earningId REMOVED
       },
     });
 
-    // 6) Update earning progress
-    const updatedTotal = prevTotal + payout;
-    const reachedCap = updatedTotal >= maxAllowed;
-
-    const nextRunTime = reachedCap
-      ? earning.nextRun
-      : new Date(Date.now() + 1 * 60 * 1000);
-
-    await prisma.roiEarning.update({
-      where: { id: earning.id },
-      data: {
-        totalEarned: updatedTotal,
-        isActive: !reachedCap,
-        nextRun: nextRunTime,
-        lastRunDate: new Date(),
-      },
-    });
-
-    // --------------------------------------------------
-    // 7) LEVEL INCOME (SHARED – INDUSTRY STANDARD)
-    // --------------------------------------------------
+    // 7️⃣ LEVEL INCOME (UNCHANGED)
     await onRoiGenerated({
       roiUserId: user.id,
       roiAmount: payout,
-      roiEventId: roiHistory.id, // future-proof
+      roiEventId: roiHistory.id,
       source: "task",
     });
 
-    // ----------------------------------------------
-    // 8) Update user active status automatically
-    // ----------------------------------------------
+    // 8️⃣ Update active status
     await updateUserActiveStatus(user.id);
 
     return Response.json({ success: true });

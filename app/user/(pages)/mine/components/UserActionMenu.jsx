@@ -11,12 +11,15 @@ export default function UserActionMenu() {
     { title: "Message", icon: "/icons/message.png", path: "/user/messages" },
     { title: "Withdrawal", icon: "/icons/withdraw.png", path: "/user/withdraw" },
     { title: "Recharge", icon: "/icons/recharge.png", path: "/user/mine/recharge" },
+    { title: "Recharge", icon: "/icons/recharge.png", path: "/user/mine/recharge" },
     { title: "Generation History", icon: "/icons/recharge.png", path: "/user/generation-history" },
     { title: "Withdrawal Records", icon: "/icons/withdraw-record.png", path: "/user/withdraw-records" },
     { title: "Recharge Records", icon: "/icons/recharge-record.png", path: "/user/recharge-records" },
-
+    
+    //  ⭐ Packages Page
+    { title: "Packages", icon: "/icons/package.png", path: "/user/packages" },
     // 👉 Wallet History Page
-    { title: "Wallet History", icon: "/icons/wallet-change.png", path: "/user/wallet-changes" },
+    { title: "Wallet History", icon: "/icons/wallet-change.png", path: "/user/wallet/history/" },
 
     // ⭐ NEW: Status History Menu
     { title: "Status History", icon: "/icons/status-history.png", path: "/user/status-history" },

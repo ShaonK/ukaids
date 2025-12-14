@@ -5,18 +5,22 @@ import { getUser } from "@/lib/getUser";
 export async function GET() {
   try {
     const user = await getUser();
-    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // ALWAYS fetch correct ROI row:
-    const earning = await prisma.roiEarning.findFirst({
-      where: { userId: user.id },
-      orderBy: [
-        { isActive: "desc" },
-        { nextRun: "asc" },
-      ],
+    // 1️⃣ Active package fetch (LATEST)
+    const activePackage = await prisma.userPackage.findFirst({
+      where: {
+        userId: user.id,
+        isActive: true,
+      },
+      orderBy: {
+        startedAt: "desc",
+      },
     });
 
-    if (!earning) {
+    if (!activePackage) {
       return Response.json({
         success: true,
         hasEarning: false,
@@ -24,22 +28,26 @@ export async function GET() {
       });
     }
 
+    // 2️⃣ ROI timing (every 1 minute – same as before)
     const now = new Date();
-    const isReady = earning.isActive && earning.nextRun <= now;
+    const lastRun = activePackage.lastRoiAt || activePackage.startedAt;
+    const nextRun = new Date(lastRun.getTime() + 60 * 1000);
+
+    const isReady = now >= nextRun;
 
     return Response.json({
       success: true,
       hasEarning: true,
       earning: {
-        id: earning.id,
-        amount: Number(earning.amount),
-        nextRun: earning.nextRun,
-        totalEarned: Number(earning.totalEarned),
-        maxEarnable: Number(earning.maxEarnable),
-        isActive: earning.isActive,
+        packageId: activePackage.packageId,
+        packageAmount: Number(activePackage.amount),
+        roiPercent: 2,
+        nextRun,
         isReady,
+        totalEarned: Number(activePackage.totalEarned),
       },
     });
+
   } catch (err) {
     console.error("TASK STATUS ERROR:", err);
     return Response.json({ error: "Server error" }, { status: 500 });
