@@ -1,37 +1,31 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function InviteButton() {
+  const router = useRouter();
+
   return (
     <div
+      onClick={() => router.push("/user/invite")}
       className="
-        w-[328px] 
-        h-[53px] 
-        bg-[#606F73] 
-        rounded-[7px] 
-        flex 
-        items-center 
-        px-4 
-        mx-auto 
-        mt-4
+        w-[328px] h-[53px]
+        bg-[#606F73] rounded-[7px]
+        flex items-center px-4
+        mx-auto mt-4
+        cursor-pointer active:scale-95
       "
     >
-      {/* Left Icon Section */}
       <div className="flex items-center justify-center w-[40px] h-[32px] mr-4">
-        <Image
-          src="/invite.png"
-          alt="invite"
-          width={40}
-          height={33}
-          className="object-contain"
-        />
+        <Image src="/invite.png" alt="invite" width={40} height={33} />
       </div>
 
-      {/* Text Section */}
       <div className="flex flex-col leading-tight">
-        <span className="text-white text-[16px] font-bold">Invite to Join</span>
-        <span className="text-white text-[12px] font-semibold mt-[-2px]">
+        <span className="text-white text-[16px] font-bold">
+          Invite to Join
+        </span>
+        <span className="text-white text-[12px] font-semibold -mt-[2px]">
           Invite New Employees
         </span>
       </div>
