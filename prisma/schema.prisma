@@ -32,7 +32,6 @@ model User {
   createdAt DateTime @default(now())
 
   deposits          Deposit[]
-  withdraws         Withdraw[]
   wallet            Wallet?
   depositHistory    DepositHistory[]
   approvedDeposits  ApprovedDeposit[]
@@ -60,8 +59,10 @@ model User {
   walletTransactions WalletTransaction[]
   sentTransfers      BalanceTransfer[]   @relation("Sender")
   receivedTransfers  BalanceTransfer[]   @relation("Receiver")
-  withdrawAddresses  WithdrawAddress[]
-  withdrawRequests   WithdrawRequest[]
+  withdrawAddress  WithdrawAddress? @relation("UserWithdrawAddress")
+  withdrawRequests WithdrawRequest[]
+  withdraws        Withdraw[]
+  
 }
 
 model UserStatusHistory {
@@ -231,37 +232,51 @@ model RejectedDeposit {
  * ---------------- WITHDRAW ----------------
  */
 
+model WithdrawRequest {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+
+  amount     Float    // requested amount (gross)
+  commission Float    @default(0)
+  netAmount  Float    @default(0)
+
+  address    String
+  network    String
+
+  status     String   // pending | approved | rejected
+  approvedAt DateTime?
+  rejectedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([status])
+}
+
 model Withdraw {
   id         Int      @id @default(autoincrement())
   userId     Int
-  user       User     @relation(fields: [userId], references: [id])
   amount     Float
   walletType String
   status     String   @default("pending")
-  createdAt  DateTime @default(now())
-}
 
-model WithdrawRequest {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  amount    Float
-  address   String
-  network   String
-  status    String // pending | approved | rejected
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  approvedAt DateTime?
+  rejectedAt DateTime?
 
   user User @relation(fields: [userId], references: [id])
 }
+
 
 model WithdrawAddress {
   id        Int      @id @default(autoincrement())
-  userId    Int
+  userId    Int      @unique
   address   String
   network   String
-  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation("UserWithdrawAddress", fields: [userId], references: [id])
 }
 
 model ApprovedWithdraw {
@@ -301,7 +316,6 @@ model BalanceTransfer {
   receiver User     @relation("Receiver", fields: [receiverId], references: [id])
   package  Package? @relation(fields: [packageId], references: [id])
 }
-
 
 /**
  * ---------------- ROI MODELS (UNCHANGED) ----------------

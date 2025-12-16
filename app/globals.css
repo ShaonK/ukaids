@@ -44,6 +44,7 @@
 /* Mobile View Design Centering for Desktop */
 body {
   background: #f3f4f6;
+  overflow-x: hidden;
 }
 
 html {

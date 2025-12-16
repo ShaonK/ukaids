@@ -1,72 +1,67 @@
 // app/api/admin/withdraws/approve/route.js
 import prisma from "@/lib/prisma";
-import { updateUserActiveStatus, closeActiveHistory } from "@/lib/updateUserActiveStatus";
+import { debitWallet } from "@/lib/walletService";
+
+const COMMISSION_RATE = 0.10; // 10%
 
 export async function POST(req) {
   try {
     const { id } = await req.json();
+    const withdrawId = Number(id);
 
-    const withdraw = await prisma.withdraw.findUnique({
-      where: { id },
-      include: {
-        user: true,
-      },
-    });
-
-    if (!withdraw)
-      return new Response(JSON.stringify({ error: "Not found" }), { status: 404 });
-
-    if (withdraw.status !== "pending") {
-      return new Response(JSON.stringify({ error: "Already processed" }), { status: 400 });
+    if (!withdrawId) {
+      return Response.json({ error: "Withdraw ID required" }, { status: 400 });
     }
-
-    const userId = withdraw.userId;
-    const amount = withdraw.amount;
 
     await prisma.$transaction(async (tx) => {
-      // -------------------------------------------
-      // 1) Approve Withdraw
-      // -------------------------------------------
-      await tx.withdraw.update({
-        where: { id },
-        data: { status: "approved" },
+      const w = await tx.withdrawRequest.findUnique({
+        where: { id: withdrawId },
       });
 
-      // -------------------------------------------
-      // 2) Add Approved Withdraw Record
-      // -------------------------------------------
-      await tx.approvedWithdraw.create({
-        data: {
-          userId,
-          amount,
-          walletType: withdraw.walletType,
-        },
+      if (!w) {
+        throw new Error("Withdraw request not found");
+      }
+
+      if (w.status !== "pending") {
+        throw new Error("Withdraw already processed");
+      }
+
+      const commission = Number((w.amount * COMMISSION_RATE).toFixed(6));
+      const netAmount = Number((w.amount - commission).toFixed(6));
+
+      // 🔒 Debit user ACCOUNT wallet
+      await debitWallet({
+        tx,
+        userId: w.userId,
+        walletType: "ACCOUNT",
+        amount: w.amount,
+        source: "WITHDRAW",
+        referenceId: w.id,
+        note: "Withdraw approved by admin",
       });
 
-      // -------------------------------------------
-      // 3) Deduct From Wallet (Selected Wallet)
-      // -------------------------------------------
-      await tx.wallet.update({
-        where: { userId },
+      // ✅ Update withdraw request
+      await tx.withdrawRequest.update({
+        where: { id: withdrawId },
         data: {
-          [withdraw.walletType]: { decrement: amount },
+          commission,
+          netAmount,
+          status: "approved",
+          approvedAt: new Date(),
         },
       });
     });
 
-    // -------------------------------------------
-    // 4) After Withdraw → Check Active Status
-    // -------------------------------------------
-    const becameInactive = await updateUserActiveStatus(userId);
+    return Response.json({
+      success: true,
+      message: "Withdraw approved successfully",
+    });
 
-    // if user turned inactive now → close active history session
-    if (becameInactive) {
-      await closeActiveHistory(userId, "Withdraw → wallet empty/inactive condition met");
-    }
-
-    return new Response(JSON.stringify({ success: true }));
-  } catch (e) {
-    console.error("Withdraw Approve ERROR:", e);
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+  } catch (err) {
+    console.error("ADMIN WITHDRAW APPROVE ERROR:", err);
+    return Response.json(
+      { error: err.message || "Approve failed" },
+      { status: 500 }
+    );
   }
 }

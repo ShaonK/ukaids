@@ -1,15 +1,36 @@
+// app/api/admin/withdraws/route.js
 import prisma from "@/lib/prisma";
 
 export async function GET() {
-    try {
-        const withdraws = await prisma.withdraw.findMany({
-            where: { status: "pending" },
-            orderBy: { id: "desc" },
-            include: { user: true }
-        });
+  try {
+    const withdraws = await prisma.withdrawRequest.findMany({
+      where: {
+        status: "pending",
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        user: {
+          select: {
+            username: true,
+            withdrawAddress: {
+              select: {
+                address: true,
+                network: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
-        return new Response(JSON.stringify(withdraws));
-    } catch (err) {
-        return new Response(JSON.stringify({ error: err.message }), { status: 500 });
-    }
+    return Response.json({ withdraws });
+  } catch (err) {
+    console.error("ADMIN WITHDRAW LIST ERROR:", err);
+    return Response.json(
+      { error: "Failed to load withdraw requests" },
+      { status: 500 }
+    );
+  }
 }

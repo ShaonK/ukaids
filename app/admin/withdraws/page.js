@@ -1,174 +1,154 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle, XCircle } from "lucide-react";
 
 export default function AdminWithdrawsPage() {
-    const [list, setList] = useState([]);
-    const [loading, setLoading] = useState([]);
-    const [search, setSearch] = useState("");
-    const [page, setPage] = useState(1);
+  const [withdraws, setWithdraws] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState("");
 
-    const PER_PAGE = 10;
+  async function loadWithdraws() {
+    setLoading(true);
+    const res = await fetch("/api/admin/withdraws");
+    const data = await res.json();
+    setWithdraws(data.withdraws || []);
+    setLoading(false);
+  }
 
-    async function load() {
-        const res = await fetch("/api/admin/withdraws");
-        const data = await res.json();
-        setList(data || []);
+  useEffect(() => {
+    loadWithdraws();
+  }, []);
+
+  async function approveWithdraw(id) {
+    if (!confirm("Confirm: Have you sent the USDT via Binance?")) return;
+
+    const res = await fetch("/api/admin/withdraws/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Approve failed");
+      return;
     }
 
-    async function handle(id, action) {
-        setLoading((prev) => [...prev, id]);
+    alert("Withdraw approved");
+    loadWithdraws();
+  }
 
-        await fetch(`/api/admin/withdraws/${action}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id }),
-        });
+  async function rejectWithdraw(id) {
+    if (!confirm("Reject this withdraw request?")) return;
 
-        setList((prev) => prev.filter((w) => w.id !== id));
-        setLoading((prev) => prev.filter((x) => x !== id));
+    const res = await fetch("/api/admin/withdraws/reject", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Reject failed");
+      return;
     }
 
-    useEffect(() => {
-        load();
-    }, []);
+    alert("Withdraw rejected");
+    loadWithdraws();
+  }
 
-    const filtered = list.filter(
-        (w) =>
-            w.user.username.toLowerCase().includes(search.toLowerCase()) ||
-            w.amount.toString().includes(search)
-    );
+  if (loading) {
+    return <p className="p-4">Loading withdraw requests…</p>;
+  }
 
-    const totalPages = Math.ceil(filtered.length / PER_PAGE);
-    const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  return (
+    <div className="p-4">
+      <h1 className="text-lg font-bold mb-4">Pending Withdraw Requests</h1>
 
-    return (
-        <div className="p-6">
+      {withdraws.length === 0 && (
+        <p className="text-gray-500">No pending withdraw requests</p>
+      )}
 
-            {/* PAGE TITLE */}
-            <h1 className="text-[28px] font-bold mb-4">Withdraw Requests</h1>
+      <div className="space-y-4">
+        {withdraws.map((w) => {
+          const address = w.user?.withdrawAddress?.address;
+          const network = w.user?.withdrawAddress?.network;
 
-            {/* SEARCH BAR */}
-            <input
-                type="text"
-                placeholder="Search user / amount..."
-                value={search}
-                onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                }}
-                className="block w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 
-                           focus:ring focus:ring-blue-200 outline-none"
-            />
-
-            {/* TABLE WRAPPER */}
+          return (
             <div
-                className="rounded-xl overflow-hidden mx-auto"
-                style={{
-                    background: "#FFFFFF",
-                    border: "1px solid #E5E7EB",
-                    maxWidth: "95%",
-                }}
+              key={w.id}
+              className="bg-[#1A1A1A] text-white p-4 rounded-xl shadow"
             >
+              <p className="text-sm">
+                👤 <b>{w.user?.username}</b>
+              </p>
 
-                {/* HEADER */}
-                <div
-                    className="grid grid-cols-5 px-4"
-                    style={{
-                        height: 42,
-                        fontSize: 14,
-                        fontWeight: 600,
-                        color: "#1F2937",
-                        borderBottom: "1px solid #E5E7EB",
-                        alignItems: "center",
-                    }}
-                >
-                    <span className="truncate">User</span>
-                    <span className="truncate">Amount</span>
-                    <span className="truncate">Wallet</span>
-                    <span className="truncate">Status</span>
-                    <span className="truncate text-right">Action</span>
-                </div>
+              <p className="text-sm mt-1">
+                💰 Amount: <b>${w.amount}</b>
+              </p>
 
-                {/* ROWS */}
-                {paginated.map((w) => (
-                    <div
-                        key={w.id}
-                        className="grid grid-cols-5 px-4"
-                        style={{
-                            height: 40,
-                            fontSize: 13,
-                            borderBottom: "1px solid #E5E7EB",
-                            alignItems: "center",
-                            color: "#1F2937",
-                        }}
-                    >
-                        {/* USER */}
-                        <span className="truncate">{w.user.username}</span>
+              {/* ADDRESS */}
+              <p className="text-sm mt-1">
+                📋 Address:{" "}
+                {address ? (
+                  <span className="text-green-400 break-all">
+                    {address}
+                  </span>
+                ) : (
+                  <span className="text-red-400">Not set</span>
+                )}
+              </p>
 
-                        {/* AMOUNT */}
-                        <span className="truncate">${w.amount}</span>
+              {/* NETWORK */}
+              <p className="text-sm mt-1">
+                🔗 Network:{" "}
+                {network ? (
+                  <span className="text-green-400">{network}</span>
+                ) : (
+                  <span className="text-red-400">—</span>
+                )}
+              </p>
 
-                        {/* WALLET */}
-                        <span className="truncate">{w.walletType}</span>
-
-                        {/* STATUS ICON */}
-                        <span className="flex justify-center">
-                            {w.status === "approved" ? (
-                                <CheckCircle size={18} color="#059669" />
-                            ) : w.status === "rejected" ? (
-                                <XCircle size={18} color="#DC2626" />
-                            ) : (
-                                <XCircle size={18} color="#D97706" />
-                            )}
-                        </span>
-
-                        {/* ACTION BUTTONS */}
-                        <div className="flex justify-end gap-1">
-                            <button
-                                disabled={loading.includes(w.id)}
-                                onClick={() => handle(w.id, "approve")}
-                                className="px-2 py-1 bg-green-600 text-white rounded text-xs"
-                            >
-                                OK
-                            </button>
-
-                            <button
-                                disabled={loading.includes(w.id)}
-                                onClick={() => handle(w.id, "reject")}
-                                className="px-2 py-1 bg-red-600 text-white rounded text-xs"
-                            >
-                                No
-                            </button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* PAGINATION */}
-            <div className="flex justify-between mt-4 px-2">
+              {/* COPY BUTTON */}
+              {address && (
                 <button
-                    disabled={page === 1}
-                    onClick={() => setPage(page - 1)}
-                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40"
+                  onClick={() => {
+                    navigator.clipboard.writeText(address);
+                    alert("Address copied");
+                  }}
+                  className="mt-2 text-xs px-3 py-1 rounded bg-gray-700"
                 >
-                    Previous
+                  Copy Address
+                </button>
+              )}
+
+              {/* ACTIONS */}
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={() => approveWithdraw(w.id)}
+                  disabled={!address}
+                  className="px-4 py-2 rounded bg-green-600 disabled:opacity-40"
+                >
+                  Approve
                 </button>
 
-                <span className="font-medium text-gray-700">
-                    Page {page} / {totalPages}
-                </span>
-
                 <button
-                    disabled={page === totalPages}
-                    onClick={() => setPage(page + 1)}
-                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40"
+                  onClick={() => rejectWithdraw(w.id)}
+                  className="px-4 py-2 rounded bg-red-600"
                 >
-                    Next
+                  Reject
                 </button>
-            </div>
+              </div>
 
-        </div>
-    );
+              {!address && (
+                <p className="text-xs text-red-400 mt-2">
+                  ⚠️ User has not set withdraw address
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
