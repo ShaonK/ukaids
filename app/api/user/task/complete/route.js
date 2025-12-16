@@ -2,8 +2,9 @@
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 import { creditWallet } from "@/lib/walletService";
+import { distributeLevelIncome } from "@/lib/levelService";
 
-const TASK_INTERVAL_MS = 60 * 1000; // DEV MODE (1 min)
+const TASK_INTERVAL_MS = 60 * 1000; // DEV: 1 min
 
 export async function POST() {
   try {
@@ -14,45 +15,30 @@ export async function POST() {
 
     const userId = user.id;
 
-    // 🔎 Load active package
+    // 🔎 active package
     const activePkg = await prisma.userPackage.findFirst({
-      where: {
-        userId,
-        isActive: true,
-      },
+      where: { userId, isActive: true },
     });
 
     if (!activePkg) {
-      return Response.json(
-        { error: "No active package" },
-        { status: 400 }
-      );
+      return Response.json({ error: "No active package" }, { status: 400 });
     }
 
     const now = Date.now();
-
-    // ⏱ Cooldown base
     const baseTime = activePkg.lastRoiAt
       ? new Date(activePkg.lastRoiAt).getTime()
       : new Date(activePkg.startedAt).getTime();
 
-    const isReady = now - baseTime >= TASK_INTERVAL_MS;
-
-    // 🔐 Double click guard
-    if (!isReady) {
-      return Response.json(
-        { error: "Task not ready" },
-        { status: 400 }
-      );
+    if (now - baseTime < TASK_INTERVAL_MS) {
+      return Response.json({ error: "Task not ready" }, { status: 400 });
     }
 
-    const roiAmount = Number(
-      (activePkg.amount * 0.02).toFixed(6)
-    );
+    const roiAmount = Number((activePkg.amount * 0.02).toFixed(6));
 
     await prisma.$transaction(async (tx) => {
-      // 1️⃣ Credit ROI wallet
+      // 1️⃣ ROI wallet
       await creditWallet({
+        tx,
         userId,
         walletType: "ROI",
         amount: roiAmount,
@@ -60,24 +46,29 @@ export async function POST() {
         note: "Task completed ROI",
       });
 
-      // 2️⃣ 🔥 SAVE ROI HISTORY (THIS WAS MISSING)
+      // 2️⃣ ROI history
       await tx.roiHistory.create({
         data: {
           userId,
           amount: roiAmount,
-          earningId: null, // optional, future-safe
+          earningId: null,
         },
       });
 
-      // 3️⃣ Update package task context
+      // 3️⃣ update package
       await tx.userPackage.update({
         where: { id: activePkg.id },
         data: {
           lastRoiAt: new Date(),
-          totalEarned: {
-            increment: roiAmount,
-          },
+          totalEarned: { increment: roiAmount },
         },
+      });
+
+      // 🔥 4️⃣ LEVEL INCOME DISTRIBUTION
+      await distributeLevelIncome({
+        tx,
+        buyerId: userId,
+        roiAmount,
       });
     });
 
@@ -88,9 +79,6 @@ export async function POST() {
 
   } catch (err) {
     console.error("❌ TASK COMPLETE ERROR:", err);
-    return Response.json(
-      { error: "Server error" },
-      { status: 500 }
-    );
+    return Response.json({ error: "Server error" }, { status: 500 });
   }
 }
