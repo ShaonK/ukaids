@@ -125,9 +125,18 @@ export default function DashboardPage() {
           )}
         />
         <UserAmountSummaryCard
+          title="Salary Wallet"
+          amount={fmt(wallet.salaryWallet)}
+        />
+          <UserAmountSummaryCard
+          title="Donation Wallet"
+          amount={fmt(wallet.donationWallet)}
+        />
+        <UserAmountSummaryCard
           title="Return Wallet"
           amount={fmt(wallet.returnWallet)}
         />
+      
 
       </div>
 

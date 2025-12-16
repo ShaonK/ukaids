@@ -59,48 +59,89 @@ export default function RechargePage() {
 
   return (
     <div className="p-4 flex flex-col items-center text-white">
-      <h2 className="text-xl font-semibold mb-3">Recharge / Deposit</h2>
+      <h2 className="text-xl font-semibold mb-4">
+        Recharge / Deposit
+      </h2>
 
-      <div className="w-[328px] bg-[#111] rounded-lg p-4 flex flex-col items-center">
+      <div className="w-[340px] bg-[#121212] border border-gray-800 rounded-xl p-5 space-y-4">
+
+        {/* ADDRESS */}
         <div
           onClick={copyAddress}
-          className="mb-3 bg-[#222] px-3 py-2 rounded cursor-pointer text-center text-sm font-mono"
+          className="bg-[#1A1A1A] border border-gray-700 rounded-lg px-3 py-2 text-center cursor-pointer"
         >
-          {depositAddress}
-          <div className="text-xs text-orange-400">
-            {copied ? "Copied!" : "Tap to copy"}
-          </div>
+          <p className="text-sm font-mono break-all">
+            {depositAddress}
+          </p>
+          <p className="text-xs mt-1 text-orange-400">
+            {copied ? "Copied!" : "Tap to copy address"}
+          </p>
         </div>
 
-        <img
-          src={qrUrl}
-          alt="QR Code"
-          width={200}
-          height={200}
-          className="rounded mb-4"
-        />
-
-        <form className="w-full" onSubmit={handleSubmit}>
-          <label className="text-xs text-gray-300">Transaction ID *</label>
-          <input
-            value={trx}
-            onChange={(e) => setTrx(e.target.value)}
-            className="w-full px-3 py-2 rounded-md mb-3 text-black"
-            placeholder="Enter TRX/Hash ID"
+        {/* QR */}
+        <div className="flex justify-center">
+          <img
+            src={qrUrl}
+            alt="QR Code"
+            width={200}
+            height={200}
+            className="rounded-lg border border-gray-700"
           />
+        </div>
 
-          <label className="text-xs text-gray-300">Amount *</label>
-          <input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-full px-3 py-2 rounded-md mb-3 text-black"
-            placeholder="Amount sent"
-          />
+        {/* FORM */}
+        <form className="space-y-3" onSubmit={handleSubmit}>
 
+          {/* TRANSACTION ID */}
+          <div>
+            <label className="text-xs text-gray-400 mb-1 block">
+              Transaction ID *
+            </label>
+            <input
+              value={trx}
+              onChange={(e) => setTrx(e.target.value)}
+              placeholder="Enter TRX / Hash ID"
+              className="
+                w-full px-3 py-2 rounded-lg
+                bg-[#0F0F0F] text-white
+                border border-gray-700
+                focus:outline-none focus:ring-2 focus:ring-orange-500
+                placeholder-gray-500
+              "
+            />
+          </div>
+
+          {/* AMOUNT */}
+          <div>
+            <label className="text-xs text-gray-400 mb-1 block">
+              Amount *
+            </label>
+            <input
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Amount sent"
+              type="number"
+              className="
+                w-full px-3 py-2 rounded-lg
+                bg-[#0F0F0F] text-white
+                border border-gray-700
+                focus:outline-none focus:ring-2 focus:ring-orange-500
+                placeholder-gray-500
+              "
+            />
+          </div>
+
+          {/* BUTTON */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#EC7B03] py-2 rounded font-semibold"
+            className="
+              w-full mt-2 py-2 rounded-lg font-semibold
+              bg-gradient-to-r from-[#EC7B03] to-[#FF9F1C]
+              text-black
+              active:scale-95 transition
+              disabled:opacity-60
+            "
           >
             {loading ? "Submitting..." : "Deposit Now"}
           </button>

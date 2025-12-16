@@ -4,205 +4,277 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function WithdrawPage() {
-    const router = useRouter();
+  const router = useRouter();
 
-    const [wallet, setWallet] = useState(null);
-    const [loadingMove, setLoadingMove] = useState(false);
-    const [loadingWithdraw, setLoadingWithdraw] = useState(false);
-    const [amount, setAmount] = useState("");
-    const [msg, setMsg] = useState("");
+  const [wallet, setWallet] = useState(null);
+  const [pendingWithdraw, setPendingWithdraw] = useState(null);
 
-    /* ================================
-       Load wallet balance
-    ================================= */
-    async function loadWallet() {
-        try {
-            const res = await fetch("/api/user/wallet");
-            const data = await res.json();
-            setWallet(data.wallet);
-        } catch (err) {
-            console.error("Wallet load error:", err);
-        }
+  const [amount, setAmount] = useState("");
+  const [loadingMove, setLoadingMove] = useState(false);
+  const [loadingAction, setLoadingAction] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  /* ===============================
+     Load wallet
+  =============================== */
+  async function loadWallet() {
+    const res = await fetch("/api/user/wallet");
+    const data = await res.json();
+    setWallet(data.wallet);
+  }
+
+  /* ===============================
+     Load pending withdraw
+  =============================== */
+  async function loadPendingWithdraw() {
+    const res = await fetch("/api/user/withdraw/history");
+    const data = await res.json();
+
+    const pending =
+      data.items?.find((w) => w.status === "pending") || null;
+
+    setPendingWithdraw(pending);
+    setAmount(pending ? pending.amount : "");
+  }
+
+  /* ===============================
+     Withdraw address guard
+  =============================== */
+  async function checkWithdrawAddress() {
+    const res = await fetch("/api/user/withdraw-address");
+    const data = await res.json();
+
+    if (!data?.address) {
+      router.replace("/user/withdraw-address");
+      return false;
+    }
+    return true;
+  }
+
+  /* ===============================
+     On load
+  =============================== */
+  useEffect(() => {
+    (async () => {
+      const ok = await checkWithdrawAddress();
+      if (ok) {
+        await loadWallet();
+        await loadPendingWithdraw();
+      }
+    })();
+  }, []);
+
+  /* ===============================
+     Move wallets → Account
+  =============================== */
+  async function moveWallet() {
+    setLoadingMove(true);
+    setMsg("");
+
+    const res = await fetch("/api/user/move-to-account", {
+      method: "POST",
+    });
+    const data = await res.json();
+
+    setLoadingMove(false);
+
+    if (!res.ok) {
+      setMsg(data.error || "Wallet move failed");
+      return;
     }
 
-    /* ================================
-       Check withdraw address (GUARD)
-    ================================= */
-    async function checkWithdrawAddress() {
-        try {
-            const res = await fetch("/api/user/withdraw-address");
-            const data = await res.json();
+    setMsg(`✅ ${data.movedAmount} moved to Account`);
+    loadWallet();
+  }
 
-            // ❌ Address not set → redirect
-            if (!data || !data.address) {
-                router.replace("/user/withdraw-address");
-                return false;
-            }
-            return true;
-        } catch (err) {
-            console.error("Withdraw address check error:", err);
-            router.replace("/user/withdraw-address");
-            return false;
-        }
+  /* ===============================
+     Submit withdraw
+  =============================== */
+  async function submitWithdraw() {
+    setLoadingAction(true);
+    setMsg("");
+
+    const res = await fetch("/api/user/withdraw", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: Number(amount) }),
+    });
+
+    const data = await res.json();
+    setLoadingAction(false);
+
+    if (!res.ok) {
+      setMsg(data.error || "Withdraw failed");
+      return;
     }
 
-    /* ================================
-       On page load
-    ================================= */
-    useEffect(() => {
-        (async () => {
-            const ok = await checkWithdrawAddress();
-            if (ok) {
-                await loadWallet();
-            }
-        })();
-    }, []);
+    setMsg("✅ Withdraw request submitted");
+    loadPendingWithdraw();
+    loadWallet();
+  }
 
-    /* ================================
-       Wallet move (income → account)
-    ================================= */
-    async function moveWallet() {
-        setLoadingMove(true);
-        setMsg("");
+  /* ===============================
+     Update withdraw
+  =============================== */
+  async function updateWithdraw() {
+    setLoadingAction(true);
+    setMsg("");
 
-        try {
-            const res = await fetch("/api/user/move-to-account", {
-                method: "POST",
-            });
+    const res = await fetch("/api/user/withdraw/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: pendingWithdraw.id,
+        amount: Number(amount),
+      }),
+    });
 
-            const data = await res.json();
-            setLoadingMove(false);
+    const data = await res.json();
+    setLoadingAction(false);
 
-            if (!res.ok) {
-                setMsg(data.error || "Wallet move failed");
-                return;
-            }
-
-            setMsg(`✅ ${data.movedAmount} moved to Account Balance`);
-            loadWallet();
-        } catch (err) {
-            setLoadingMove(false);
-            setMsg("Wallet move error");
-        }
+    if (!res.ok) {
+      setMsg(data.error || "Update failed");
+      return;
     }
 
-    /* ================================
-       Submit withdraw request
-    ================================= */
-    async function submitWithdraw() {
-        if (!amount || Number(amount) <= 0) {
-            setMsg("Enter a valid withdraw amount");
-            return;
-        }
+    setMsg("✅ Withdraw updated");
+    loadPendingWithdraw();
+  }
 
-        setLoadingWithdraw(true);
-        setMsg("");
+  /* ===============================
+     Cancel withdraw
+  =============================== */
+  async function cancelWithdraw() {
+    if (!confirm("Cancel withdraw request?")) return;
 
-        try {
-            const res = await fetch("/api/user/withdraw", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ amount: Number(amount) }),
-            });
+    setLoadingAction(true);
+    setMsg("");
 
-            const data = await res.json();
-            setLoadingWithdraw(false);
+    const res = await fetch("/api/user/withdraw/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: pendingWithdraw.id }),
+    });
 
-            if (!res.ok) {
-                setMsg(data.error || "Withdraw request failed");
-                return;
-            }
+    const data = await res.json();
+    setLoadingAction(false);
 
-            setMsg("✅ Withdraw request sent successfully");
-            setAmount("");
-            loadWallet();
-        } catch (err) {
-            setLoadingWithdraw(false);
-            setMsg("Withdraw request error");
-        }
+    if (!res.ok) {
+      setMsg(data.error || "Cancel failed");
+      return;
     }
 
-    /* ================================
-       Calculations
-    ================================= */
-    const incomeTotal =
-        (wallet?.roiWallet || 0) +
-        (wallet?.levelWallet || 0) +
-        (wallet?.referralWallet || 0) +
-        (wallet?.returnWallet || 0);
+    setMsg("❌ Withdraw cancelled");
+    setPendingWithdraw(null);
+    setAmount("");
+  }
 
-    /* ================================
-       UI
-    ================================= */
-    return (
-        <div className="p-4 text-white">
-            <h1 className="text-xl font-bold mb-4 text-center">
-                💸 Withdrawal
-            </h1>
+  /* ===============================
+     Income wallets
+  =============================== */
+  const incomeWallets = [
+    { label: "ROI Income", amount: wallet?.roiWallet || 0 },
+    { label: "Level Income", amount: wallet?.levelWallet || 0 },
+    { label: "Referral Income", amount: wallet?.referralWallet || 0 },
+    { label: "Return Wallet", amount: wallet?.returnWallet || 0 },
+  ];
 
-            {/* WALLET MOVE */}
-            <div className="bg-[#1A1A1A] p-4 rounded-xl mb-4">
-                <h2 className="font-semibold mb-2">Wallet Move</h2>
+  const incomeTotal = incomeWallets.reduce(
+    (sum, w) => sum + w.amount,
+    0
+  );
 
-                <div className="text-sm text-gray-400 space-y-1">
-                    <p>ROI Wallet: ${wallet?.roiWallet ?? 0}</p>
-                    <p>Level Wallet: ${wallet?.levelWallet ?? 0}</p>
-                    <p>Referral Wallet: ${wallet?.referralWallet ?? 0}</p>
-                    <p>Return Wallet: ${wallet?.returnWallet ?? 0}</p>
-                </div>
+  /* ===============================
+     UI
+  =============================== */
+  return (
+    <div className="p-4 text-white">
+      <h1 className="text-xl font-bold mb-4 text-center">
+        💸 Withdraw
+      </h1>
 
-                <p className="mt-2 text-sm">
-                    Total Movable:{" "}
-                    <b className="text-green-400">${incomeTotal}</b>
-                </p>
+      {/* MOVE TO ACCOUNT */}
+      <div className="bg-[#1A1A1A] p-4 rounded-xl mb-4">
+        <p className="text-sm text-gray-400 mb-2">
+          Movable Income:{" "}
+          <b className="text-green-400">${incomeTotal}</b>
+        </p>
 
-                <button
-                    onClick={moveWallet}
-                    disabled={loadingMove || incomeTotal <= 0}
-                    className="mt-3 w-full py-2 rounded bg-blue-600 disabled:opacity-50"
-                >
-                    {loadingMove ? "Moving..." : "Move to Account"}
-                </button>
-            </div>
-
-            {/* WITHDRAW REQUEST */}
-            <div className="bg-[#1A1A1A] p-4 rounded-xl">
-                <h2 className="font-semibold mb-2">Withdraw Request</h2>
-
-                <p className="text-sm text-gray-400 mb-2">
-                    Account Balance:{" "}
-                    <b className="text-white">
-                        ${wallet?.mainWallet ?? 0}
-                    </b>
-                </p>
-
-                <input
-                    type="number"
-                    placeholder="Enter withdraw amount"
-                    value={amount}
-                    min="0"
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full p-2 rounded bg-black border border-gray-700 mb-3"
-                />
-
-                {msg && (
-                    <p className="text-sm text-center text-yellow-400 mb-2">
-                        {msg}
-                    </p>
-                )}
-
-                <button
-                    onClick={submitWithdraw}
-                    disabled={loadingWithdraw}
-                    className="w-full py-2 rounded bg-gradient-to-r from-orange-500 to-yellow-400 text-black font-semibold disabled:opacity-50"
-                >
-                    {loadingWithdraw ? "Submitting..." : "Submit Withdraw"}
-                </button>
-
-                <p className="text-xs text-gray-500 text-center mt-2">
-                    ⚠️ 10% withdrawal commission applies
-                </p>
-            </div>
+        <div className="space-y-1 mb-3">
+          {incomeWallets
+            .filter((w) => w.amount > 0)
+            .map((w) => (
+              <div
+                key={w.label}
+                className="flex justify-between text-sm text-gray-300"
+              >
+                <span>{w.label}</span>
+                <span>${w.amount}</span>
+              </div>
+            ))}
         </div>
-    );
+
+        <button
+          onClick={moveWallet}
+          disabled={loadingMove || incomeTotal <= 0}
+          className="w-full py-2 bg-blue-600 rounded disabled:opacity-50"
+        >
+          {loadingMove ? "Moving..." : "Move to Account"}
+        </button>
+      </div>
+
+      {/* WITHDRAW BOX */}
+      <div className="bg-[#1A1A1A] p-4 rounded-xl">
+        <p className="text-sm mb-2">
+          Account Balance:{" "}
+          <b>${wallet?.mainWallet ?? 0}</b>
+        </p>
+
+        <input
+          type="number"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          className="w-full p-2 bg-black border border-gray-700 rounded mb-3"
+        />
+
+        {msg && (
+          <p className="text-sm text-center text-yellow-400 mb-2">
+            {msg}
+          </p>
+        )}
+
+        {!pendingWithdraw ? (
+          <button
+            onClick={submitWithdraw}
+            disabled={loadingAction}
+            className="w-full py-2 bg-gradient-to-r from-orange-500 to-yellow-400 text-black font-semibold rounded"
+          >
+            Submit Withdraw
+          </button>
+        ) : (
+          <div className="flex gap-3">
+            <button
+              onClick={updateWithdraw}
+              disabled={loadingAction}
+              className="flex-1 py-2 bg-green-600 rounded"
+            >
+              Update
+            </button>
+
+            <button
+              onClick={cancelWithdraw}
+              disabled={loadingAction}
+              className="flex-1 py-2 bg-red-600 rounded"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        <p className="text-xs text-gray-500 text-center mt-2">
+          ⚠️ 10% commission applies
+        </p>
+      </div>
+    </div>
+  );
 }

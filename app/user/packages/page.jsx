@@ -44,6 +44,7 @@ export default function PackagesPage() {
   // ---------------------------
   // BUY PACKAGE (ID based)
   // ---------------------------
+
   const buyPackage = async (packageId) => {
     if (!packageId) {
       alert("Package ID missing");
@@ -75,7 +76,10 @@ export default function PackagesPage() {
         return;
       }
 
-      router.refresh();
+      // ✅ NEW
+      alert("✅ Package activated successfully!");
+      router.push("/user"); // Dashboard
+
     } catch (err) {
       console.error(err);
       alert("Server error");
@@ -116,7 +120,10 @@ export default function PackagesPage() {
         return;
       }
 
-      router.refresh();
+      // ✅ NEW
+      alert("🚀 Package upgraded successfully!");
+      router.push("/user"); // Dashboard
+
     } catch (err) {
       console.error(err);
       alert("Server error");
