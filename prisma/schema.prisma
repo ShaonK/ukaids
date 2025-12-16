@@ -1,5 +1,8 @@
+// ===============================
+// DATASOURCE & GENERATOR
+// ===============================
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -7,10 +10,9 @@ generator client {
   provider = "prisma-client-js"
 }
 
-/**
- * ---------------- USER ----------------
- */
-
+// ===============================
+// USER
+// ===============================
 model User {
   id           Int     @id @default(autoincrement())
   fullname     String
@@ -44,27 +46,31 @@ model User {
   roiHistory      RoiHistory[]
   userDepositRois UserDepositRoi[]
 
-  // ROI Level Income Relations
+  // ROI Level
   roiLevelIncomeReceived  RoiLevelIncome[] @relation("LevelUser")
   roiLevelIncomeGenerated RoiLevelIncome[] @relation("LevelFromUser")
 
-  // REFERRAL COMMISSION RELATIONS
+  // Referral
   referralCommissionsReceived ReferralCommissionHistory[] @relation("ReferralToUser")
   referralCommissionsGiven    ReferralCommissionHistory[] @relation("ReferralFromUser")
 
   statusHistory UserStatusHistory[]
 
-  // NEW
   userPackages       UserPackage[]
   walletTransactions WalletTransaction[]
   sentTransfers      BalanceTransfer[]   @relation("Sender")
   receivedTransfers  BalanceTransfer[]   @relation("Receiver")
+
   withdrawAddress  WithdrawAddress? @relation("UserWithdrawAddress")
   withdrawRequests WithdrawRequest[]
   withdraws        Withdraw[]
-  
+
+  @@index([referredBy])
 }
 
+// ===============================
+// USER STATUS HISTORY
+// ===============================
 model UserStatusHistory {
   id        Int       @id @default(autoincrement())
   userId    Int
@@ -78,41 +84,39 @@ model UserStatusHistory {
   user User @relation(fields: [userId], references: [id])
 }
 
-/**
- * ---------------- WALLET ----------------
- */
-
+// ===============================
+// WALLET
+// ===============================
 model Wallet {
   id     Int  @id @default(autoincrement())
   userId Int  @unique
   user   User @relation(fields: [userId], references: [id])
 
-  mainWallet     Float @default(0)
-  depositWallet  Float @default(0) // 🔥 NEW
-  roiWallet      Float @default(0)
-  referralWallet Float @default(0)
-  levelWallet    Float @default(0)
-  returnWallet   Float @default(0)
-  salaryWallet   Float @default(0)
-  donationWallet Float @default(0)
+  mainWallet     Decimal @default(0) @db.Decimal(18, 6)
+  depositWallet  Decimal @default(0) @db.Decimal(18, 6)
+  roiWallet      Decimal @default(0) @db.Decimal(18, 6)
+  referralWallet Decimal @default(0) @db.Decimal(18, 6)
+  levelWallet    Decimal @default(0) @db.Decimal(18, 6)
+  returnWallet   Decimal @default(0) @db.Decimal(18, 6)
+  salaryWallet   Decimal @default(0) @db.Decimal(18, 6)
+  donationWallet Decimal @default(0) @db.Decimal(18, 6)
 }
 
-/**
- * ---------------- WALLET TRANSACTION (AUDIT) ----------------
- */
-
+// ===============================
+// WALLET TRANSACTION
+// ===============================
 model WalletTransaction {
   id     Int @id @default(autoincrement())
   userId Int
 
-  walletType String // ACCOUNT | DEPOSIT | ROI | LEVEL | REFERRAL | RETURN
-  direction  String // CREDIT | DEBIT
-  amount     Float
+  walletType String
+  direction  String
+  amount     Decimal @db.Decimal(18, 6)
 
-  balanceBefore Float
-  balanceAfter  Float
+  balanceBefore Decimal @db.Decimal(18, 6)
+  balanceAfter  Decimal @db.Decimal(18, 6)
 
-  source      String // deposit | withdraw | transfer | roi | level | admin
+  source      String
   referenceId Int?
   note        String?
 
@@ -121,54 +125,53 @@ model WalletTransaction {
   user User @relation(fields: [userId], references: [id])
 }
 
-/**
- * ---------------- PACKAGE SYSTEM ----------------
- */
-
+// ===============================
+// PACKAGE SYSTEM
+// ===============================
 model Package {
   id        Int      @id @default(autoincrement())
   name      String
-  amount    Float
+  amount    Decimal  @db.Decimal(18, 6)
   position  Int
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
   userPackages     UserPackage[]
-  balanceTransfers BalanceTransfer[] // 🔥 REQUIRED
+  balanceTransfers BalanceTransfer[]
 }
 
 model UserPackage {
   id        Int   @id @default(autoincrement())
   userId    Int
   packageId Int
-  amount    Float
+  amount    Decimal @db.Decimal(18, 6)
 
   isActive  Boolean   @default(true)
   startedAt DateTime  @default(now())
   endedAt   DateTime?
 
-  source String // self | transfer | admin
+  source String
 
-  user        User      @relation(fields: [userId], references: [id])
-  package     Package   @relation(fields: [packageId], references: [id])
-  totalEarned Float     @default(0)
+  user        User    @relation(fields: [userId], references: [id])
+  package     Package @relation(fields: [packageId], references: [id])
+  totalEarned Decimal @default(0) @db.Decimal(18, 6)
   lastRoiAt   DateTime?
 
   @@index([userId, isActive])
 }
 
-/**
- * ---------------- DEPOSIT ----------------
- */
-
+// ===============================
+// DEPOSIT
+// ===============================
 model Deposit {
   id        Int      @id @default(autoincrement())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id])
-  amount    Float
+  amount    Decimal  @db.Decimal(18, 6)
   trxId     String
   status    String   @default("pending")
   createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 
   history                   DepositHistory[]
   userDepositRois           UserDepositRoi[]
@@ -176,15 +179,14 @@ model Deposit {
   referralCommissionHistory ReferralCommissionHistory[]
 }
 
-/**
- * ---------------- ADMIN PROCESS ----------------
- */
-
+// ===============================
+// ADMIN PROCESS
+// ===============================
 model DepositHistory {
   id          Int      @id @default(autoincrement())
   userId      Int
   depositId   Int
-  amount      Float
+  amount      Decimal  @db.Decimal(18, 6)
   trxId       String
   status      String
   processedBy Int
@@ -204,14 +206,13 @@ model Admin {
   processed DepositHistory[] @relation("AdminProcessRelation")
 }
 
-/**
- * ---------------- APPROVED / REJECTED ----------------
- */
-
+// ===============================
+// APPROVED / REJECTED
+// ===============================
 model ApprovedDeposit {
   id        Int      @id @default(autoincrement())
   userId    Int
-  amount    Float
+  amount    Decimal  @db.Decimal(18, 6)
   trxId     String
   createdAt DateTime @default(now())
 
@@ -221,29 +222,28 @@ model ApprovedDeposit {
 model RejectedDeposit {
   id        Int      @id @default(autoincrement())
   userId    Int
-  amount    Float
+  amount    Decimal  @db.Decimal(18, 6)
   trxId     String
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
 }
 
-/**
- * ---------------- WITHDRAW ----------------
- */
-
+// ===============================
+// WITHDRAW
+// ===============================
 model WithdrawRequest {
   id         Int      @id @default(autoincrement())
   userId     Int
 
-  amount     Float    // requested amount (gross)
-  commission Float    @default(0)
-  netAmount  Float    @default(0)
+  amount     Decimal  @db.Decimal(18, 6)
+  commission Decimal  @default(0) @db.Decimal(18, 6)
+  netAmount  Decimal  @default(0) @db.Decimal(18, 6)
 
   address    String
   network    String
 
-  status     String   // pending | approved | rejected
+  status     String
   approvedAt DateTime?
   rejectedAt DateTime?
 
@@ -257,7 +257,7 @@ model WithdrawRequest {
 model Withdraw {
   id         Int      @id @default(autoincrement())
   userId     Int
-  amount     Float
+  amount     Decimal  @db.Decimal(18, 6)
   walletType String
   status     String   @default("pending")
 
@@ -267,7 +267,6 @@ model Withdraw {
 
   user User @relation(fields: [userId], references: [id])
 }
-
 
 model WithdrawAddress {
   id        Int      @id @default(autoincrement())
@@ -282,7 +281,7 @@ model WithdrawAddress {
 model ApprovedWithdraw {
   id         Int      @id @default(autoincrement())
   userId     Int
-  amount     Float
+  amount     Decimal  @db.Decimal(18, 6)
   walletType String
   createdAt  DateTime @default(now())
 
@@ -292,24 +291,23 @@ model ApprovedWithdraw {
 model RejectedWithdraw {
   id         Int      @id @default(autoincrement())
   userId     Int
-  amount     Float
+  amount     Decimal  @db.Decimal(18, 6)
   walletType String
   createdAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
 }
 
-/**
- * ---------------- USER TO USER TRANSFER ----------------
- */
-
+// ===============================
+// USER TO USER TRANSFER
+// ===============================
 model BalanceTransfer {
   id         Int      @id @default(autoincrement())
   senderId   Int
   receiverId Int
-  amount     Float
+  amount     Decimal  @db.Decimal(18, 6)
   packageId  Int?
-  status     String   @default("PENDING") // ✅ NEW
+  status     String   @default("PENDING")
   createdAt  DateTime @default(now())
 
   sender   User     @relation("Sender", fields: [senderId], references: [id])
@@ -317,16 +315,15 @@ model BalanceTransfer {
   package  Package? @relation(fields: [packageId], references: [id])
 }
 
-/**
- * ---------------- ROI MODELS (UNCHANGED) ----------------
- */
-
+// ===============================
+// ROI MODELS
+// ===============================
 model UserDepositRoi {
   id          Int      @id @default(autoincrement())
   userId      Int
   depositId   Int
-  amount      Float
-  roiPercent  Float    @default(2)
+  amount      Decimal  @db.Decimal(18, 6)
+  roiPercent  Decimal  @default(2) @db.Decimal(5, 2)
   nextRoiTime DateTime
   active      Boolean  @default(true)
 
@@ -337,14 +334,13 @@ model UserDepositRoi {
 model RoiHistory {
   id        Int      @id @default(autoincrement())
   userId    Int
-  earningId Int? // 🔥 optional (important)
-  amount    Float
+  earningId Int?
+  amount    Decimal  @db.Decimal(18, 6)
   createdAt DateTime @default(now())
 
   user    User        @relation(fields: [userId], references: [id])
   earning RoiEarning? @relation(fields: [earningId], references: [id])
 
-  // ✅ ADD THIS LINE
   levelIncomes RoiLevelIncome[]
 }
 
@@ -352,17 +348,17 @@ model RoiEarning {
   id        Int      @id @default(autoincrement())
   userId    Int
   depositId Int
-  amount    Float
+  amount    Decimal  @db.Decimal(18, 6)
   createdAt DateTime @default(now())
 
   nextRun     DateTime
-  totalEarned Float     @default(0)
-  maxEarnable Float     @default(0)
-  isActive    Boolean   @default(true)
+  totalEarned Decimal  @default(0) @db.Decimal(18, 6)
+  maxEarnable Decimal  @default(0) @db.Decimal(18, 6)
+  isActive    Boolean  @default(true)
   lastRunDate DateTime?
 
-  user         User         @relation(fields: [userId], references: [id])
-  deposit      Deposit      @relation(fields: [depositId], references: [id])
+  user         User        @relation(fields: [userId], references: [id])
+  deposit      Deposit     @relation(fields: [depositId], references: [id])
   roiHistories RoiHistory[]
 
   @@map("roiearning")
@@ -370,8 +366,8 @@ model RoiEarning {
 
 model RoiSettings {
   id            Int      @id @default(autoincrement())
-  roiPercent    Float    @default(2)
-  capMultiplier Float    @default(2)
+  roiPercent    Decimal  @default(2) @db.Decimal(5, 2)
+  capMultiplier Decimal  @default(2) @db.Decimal(5, 2)
   roiDays       String   @default("Mon,Tue,Wed,Thu,Fri")
   offDays       String   @default("Sat,Sun")
   timezone      String   @default("UTC")
@@ -385,7 +381,7 @@ model RoiLevelIncome {
   roiHistoryId Int?
   source       String?
   level        Int
-  amount       Float
+  amount       Decimal  @db.Decimal(18, 6)
   createdAt    DateTime @default(now())
 
   user       User        @relation("LevelUser", fields: [userId], references: [id])
@@ -393,10 +389,9 @@ model RoiLevelIncome {
   roiHistory RoiHistory? @relation(fields: [roiHistoryId], references: [id])
 }
 
-/**
- * ---------------- REFERRAL COMMISSION HISTORY ----------------
- */
-
+// ===============================
+// REFERRAL COMMISSION HISTORY
+// ===============================
 model ReferralCommissionHistory {
   id Int @id @default(autoincrement())
 

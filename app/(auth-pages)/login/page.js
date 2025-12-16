@@ -1,42 +1,72 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import loginAction from "./action";
 import { useRouter } from "next/navigation";
+import loginAction from "./action";
 
 export default function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [form, setForm] = useState({ username: "", password: "", captcha: "" });
-  const [error, setError] = useState("");
-
   const router = useRouter();
 
+  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [captcha, setCaptcha] = useState({ a: 0, b: 0 });
+
+  const [form, setForm] = useState({
+    username: "",
+    password: "",
+    captchaAnswer: "",
+  });
+
+  /* --------------------
+     GENERATE CAPTCHA
+  -------------------- */
+  useEffect(() => {
+    generateCaptcha();
+  }, []);
+
+  function generateCaptcha() {
+    setCaptcha({
+      a: Math.floor(Math.random() * 9) + 1,
+      b: Math.floor(Math.random() * 9) + 1,
+    });
+  }
+
+  function handleChange(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  }
+
   async function handleLogin() {
+    setError("");
+
     const fd = new FormData();
     fd.append("username", form.username);
     fd.append("password", form.password);
-    fd.append("captcha", form.captcha);
+    fd.append("captchaAnswer", form.captchaAnswer);
+    fd.append("captchaSum", captcha.a + captcha.b);
 
     const res = await loginAction(fd);
 
     if (res.error) {
       setError(res.error);
-    } else {
-      router.push("/user");
+      generateCaptcha();
+      return;
     }
+
+    router.push("/user");
   }
 
   return (
     <div className="w-full flex flex-col items-center mt-6 px-4">
-      {/* Welcome back */}
-      <p className="text-center text-white font-medium text-base px-4 py-1 rounded">
+      <p className="text-center text-white font-medium text-base">
         Welcome back
       </p>
 
-      {/* Continue with Google */}
-      <button className="mt-4 w-72 h-10 flex items-center justify-center rounded-md border border-gray-500 text-sm text-white cursor-pointer">
+      {/* Google */}
+      <button className="mt-4 w-72 h-10 flex items-center justify-center rounded-md border border-gray-500 text-sm text-white">
         <div className="relative w-5 h-5 mr-2">
           <Image src="/g.png" alt="Google" fill className="object-contain" />
         </div>
@@ -51,83 +81,91 @@ export default function LoginPage() {
       </div>
 
       {/* LOGIN CARD */}
-      <div
-        className="mt-4 w-72 p-4 rounded-md relative flex flex-col items-center"
-        style={{
-          background: "#000000",
-          border: "0.5px solid",
-          borderImage:
-            "linear-gradient(90deg, rgba(156,156,156,0.8) 0%, rgba(233,134,28,0.8) 49.04%, rgba(156,156,156,0.8) 100%)",
-          borderImageSlice: 1,
-        }}
-      >
-        <p className="text-[#C7C6C6] font-medium text-center mb-4">
+      <div className="mt-4 w-72 p-4 rounded-md flex flex-col bg-black border border-gray-600">
+        <p className="text-[#C7C6C6] text-center mb-4 font-medium">
           Login your account
         </p>
 
         {/* Username */}
-        <label className="self-start text-[#C7C6C6] font-medium text-sm mb-1">
-          Username*
-        </label>
+        <label className="text-sm text-gray-300 mb-1">Username*</label>
         <input
-          type="text"
+          name="username"
+          value={form.username}
+          onChange={handleChange}
           placeholder="Enter your username"
-          className="w-full h-9 rounded-sm border border-[#737373] bg-[#AFAEAE66] px-2 mb-3 text-black placeholder:text-black"
-          onChange={(e) => setForm({ ...form, username: e.target.value })}
+          className="w-full h-9 mb-3 rounded border bg-gray-200 px-2 text-black"
         />
 
-        {/* Password */}
-        <label className="self-start text-[#C7C6C6] font-medium text-sm mb-1">
-          Password*
-        </label>
-        <div className="relative w-full mb-3">
+        {/* 🔐 PASSWORD */}
+        <label className="text-sm text-gray-300 mb-1">Password*</label>
+        <div className="relative mb-3">
           <input
             type={showPassword ? "text" : "password"}
+            name="password"
+            value={form.password}
+            onChange={handleChange}
+            onBlur={() => setShowPassword(false)}
             placeholder="Enter your password"
-            className="w-full h-9 rounded-sm border border-[#737373] bg-[#AFAEAE66] px-2 text-black placeholder:text-black pr-10"
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            className="w-full h-9 rounded border bg-gray-200 px-2 text-black pr-16"
           />
 
-          {/* Eye icon */}
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+            className="
+              absolute right-2 top-1/2 -translate-y-1/2
+              text-xs font-semibold text-blue-600
+              transition-all duration-200
+              hover:text-blue-800 hover:scale-105
+            "
           >
-            {showPassword ? "🙈" : "👁️"}
+            {showPassword ? "Hide" : "Show"}
           </button>
         </div>
 
-        {/* Captcha */}
-        <label className="self-start text-[#C7C6C6] font-medium text-sm mb-1">
-          Captcha*
+        {/* 🔢 CAPTCHA (BOTTOM + HORIZONTAL + REFRESH) */}
+        <label className="flex justify-between items-center text-sm text-gray-300 mb-1">
+          <span>Captcha*</span>
+          <button
+            type="button"
+            onClick={generateCaptcha}
+            className="text-xs text-blue-400 hover:text-blue-600 transition"
+          >
+            Refresh
+          </button>
         </label>
-        <input
-          placeholder="Type: 1234"
-          className="w-full h-9 rounded-sm border border-[#737373] bg-[#AFAEAE66] px-2 mb-3 text-black placeholder:text-black"
-          onChange={(e) => setForm({ ...form, captcha: e.target.value })}
-        />
+
+        <div className="flex items-center gap-2 mb-3">
+          <div className="bg-gray-300 text-black px-4 py-2 rounded font-bold">
+            {captcha.a} + {captcha.b} = ?
+          </div>
+          <input
+            name="captchaAnswer"
+            value={form.captchaAnswer}
+            onChange={handleChange}
+            placeholder="Answer"
+            className="flex-1 h-9 rounded border bg-gray-200 px-2 text-black"
+          />
+        </div>
 
         {error && (
-          <p className="text-red-500 text-sm mb-3 text-center">{error}</p>
+          <p className="text-red-500 text-sm mb-2 text-center">
+            {error}
+          </p>
         )}
 
-        {/* Log in button */}
         <button
           onClick={handleLogin}
-          className="w-full h-10 bg-[#3B82F6] rounded-sm flex justify-center items-center mb-2 cursor-pointer active:scale-95"
+          className="w-full h-10 bg-blue-600 text-white font-bold rounded active:scale-95"
         >
-          <span className="text-white font-bold text-sm">Log in</span>
+          Log in
         </button>
       </div>
 
-      {/* Don't have account */}
-      <div className="mt-1 flex justify-end w-full px-4">
-        <span className="text-white">{`Don't have an account?`}</span>
-        <Link href="/register">
-          <span className="underline font-medium text-yellow-400 ml-1 cursor-pointer">
-            Sign up
-          </span>
+      <div className="mt-2 text-white text-sm">
+        Don’t have an account?
+        <Link href="/register" className="ml-1 text-yellow-400 underline">
+          Sign up
         </Link>
       </div>
     </div>

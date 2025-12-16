@@ -6,45 +6,70 @@ import { cookies } from "next/headers";
 import { SignJWT } from "jose";
 
 export default async function loginAction(formData) {
+  try {
     const username = formData.get("username");
     const password = formData.get("password");
-    const captcha = formData.get("captcha");
 
-    if (!captcha || captcha !== "1234") {
-        return { error: "Invalid Captcha!" };
+    const captchaAnswer = Number(formData.get("captchaAnswer"));
+    const captchaSum = Number(formData.get("captchaSum"));
+
+    /* --------------------
+       CAPTCHA VALIDATION
+    -------------------- */
+    if (!captchaAnswer || captchaAnswer !== captchaSum) {
+      return { error: "Invalid captcha!" };
     }
 
+    /* --------------------
+       USER CHECK
+    -------------------- */
     const user = await prisma.user.findUnique({
-        where: { username },
+      where: { username },
     });
 
-    if (!user) return { error: "User not found!" };
+    if (!user) {
+      return { error: "User not found!" };
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return { error: "Wrong Password!" };
+    if (!isMatch) {
+      return { error: "Wrong password!" };
+    }
 
-    if (user.isBlocked) return { error: "Account Blocked!" };
+    if (user.isBlocked) {
+      return { error: "Account blocked!" };
+    }
 
+    /* --------------------
+       JWT TOKEN
+    -------------------- */
     const SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
     const token = await new SignJWT({
-        id: user.id,
-        username: user.username,
-        isBlocked: user.isBlocked,
+      id: user.id,
+      username: user.username,
+      isBlocked: user.isBlocked,
     })
-        .setProtectedHeader({ alg: "HS256" })
-        .setExpirationTime("7d")
-        .sign(SECRET);
+      .setProtectedHeader({ alg: "HS256" })
+      .setExpirationTime("7d")
+      .sign(SECRET);
 
-    // ✔ Correct Cookie Settings
-    const cookieStore = await cookies();
+    /* --------------------
+       SET COOKIE
+    -------------------- */
+    const cookieStore = cookies();
     cookieStore.set("token", token, {
-        httpOnly: false,      // CLIENT থেকে পড়তে হবে → httpOnly=false দরকার
-        sameSite: "lax",
-        secure: false,
-        path: "/",
-        maxAge: 7 * 24 * 60 * 60,
+      httpOnly: false, // client-side access needed
+      sameSite: "lax",
+      secure: false,  // true in production (https)
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60,
     });
 
     return { success: true };
+
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
+    return { error: "Login failed. Try again later." };
+  }
 }
