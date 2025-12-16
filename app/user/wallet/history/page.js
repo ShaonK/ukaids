@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function WalletChangesPage() {
+  const router = useRouter();
+
   const [activeTab, setActiveTab] = useState("account");
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
@@ -83,7 +86,21 @@ export default function WalletChangesPage() {
   return (
     <div className="p-4 text-white">
 
-      <h2 className="text-xl font-bold mb-4 text-center">Wallet History</h2>
+      {/* HEADER */}
+      <h2 className="text-xl font-bold mb-3 text-center">Wallet History</h2>
+
+      {/* 🔁 TRANSFER HISTORY BUTTON */}
+      <button
+        onClick={() => router.push("/user/transfer/history")}
+        className="
+          mb-4 w-full py-2 rounded-lg
+          bg-[#1A1A1A] border border-gray-700
+          text-sm text-yellow-400
+          hover:bg-[#222]
+        "
+      >
+        🔁 View Transfer History
+      </button>
 
       {/* TABS */}
       <div className="flex mb-4">
@@ -96,7 +113,7 @@ export default function WalletChangesPage() {
 
       {/* FILTER */}
       <div className="flex justify-between mb-4 text-sm">
-        {["today", "week", "month", "all"].map(f => (
+        {["today", "week", "month", "all"].map((f) => (
           <button
             key={f}
             onClick={() => {
@@ -164,7 +181,7 @@ export default function WalletChangesPage() {
         <div className="flex justify-between items-center mt-4">
           <button
             disabled={page <= 1}
-            onClick={() => setPage(p => Math.max(1, p - 1))}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
             className="px-4 py-2 bg-[#1A1A1A] rounded disabled:opacity-40"
           >
             Prev
@@ -176,7 +193,7 @@ export default function WalletChangesPage() {
 
           <button
             disabled={page >= totalPages}
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             className="px-4 py-2 bg-[#1A1A1A] rounded disabled:opacity-40"
           >
             Next

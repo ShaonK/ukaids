@@ -40,6 +40,7 @@ export default function AdminSidebar() {
         { href: "/admin/withdraws/approved", label: "Approved Withdraws", icon: CheckCircle },
         { href: "/admin/withdraws/rejected", label: "Rejected Withdraws", icon: XCircle },
         { href: "/admin/settings", label: "Settings", icon: Settings },
+        { href: "/admin/transfers", label: "Transfers", icon: Wallet },
     ];
 
     return (

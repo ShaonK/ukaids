@@ -293,13 +293,15 @@ model BalanceTransfer {
   senderId   Int
   receiverId Int
   amount     Float
-  packageId  Int
+  packageId  Int?
+  status     String   @default("PENDING") // ✅ NEW
   createdAt  DateTime @default(now())
 
-  sender   User    @relation("Sender", fields: [senderId], references: [id])
-  receiver User    @relation("Receiver", fields: [receiverId], references: [id])
-  package  Package @relation(fields: [packageId], references: [id])
+  sender   User     @relation("Sender", fields: [senderId], references: [id])
+  receiver User     @relation("Receiver", fields: [receiverId], references: [id])
+  package  Package? @relation(fields: [packageId], references: [id])
 }
+
 
 /**
  * ---------------- ROI MODELS (UNCHANGED) ----------------
