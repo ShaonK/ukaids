@@ -9,15 +9,14 @@ export default async function loginAction(formData) {
   try {
     const username = formData.get("username");
     const password = formData.get("password");
-
     const captchaAnswer = Number(formData.get("captchaAnswer"));
     const captchaSum = Number(formData.get("captchaSum"));
 
     /* --------------------
-       CAPTCHA VALIDATION
+       CAPTCHA CHECK
     -------------------- */
-    if (!captchaAnswer || captchaAnswer !== captchaSum) {
-      return { error: "Invalid captcha!" };
+    if (captchaAnswer !== captchaSum) {
+      return { error: "Invalid captcha" };
     }
 
     /* --------------------
@@ -27,23 +26,16 @@ export default async function loginAction(formData) {
       where: { username },
     });
 
-    if (!user) {
-      return { error: "User not found!" };
-    }
+    if (!user) return { error: "User not found" };
+    if (user.isBlocked) return { error: "Account blocked" };
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return { error: "Wrong password!" };
-    }
-
-    if (user.isBlocked) {
-      return { error: "Account blocked!" };
-    }
+    if (!isMatch) return { error: "Wrong password" };
 
     /* --------------------
-       JWT TOKEN
+       JWT GENERATE
     -------------------- */
-    const SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
 
     const token = await new SignJWT({
       id: user.id,
@@ -51,25 +43,27 @@ export default async function loginAction(formData) {
       isBlocked: user.isBlocked,
     })
       .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
       .setExpirationTime("7d")
-      .sign(SECRET);
+      .sign(secret);
 
     /* --------------------
-       SET COOKIE
+       ✅ NEXT.JS 16 FIX
+       cookies() IS ASYNC
     -------------------- */
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
+
     cookieStore.set("token", token, {
       httpOnly: false, // client-side access needed
       sameSite: "lax",
-      secure: false,  // true in production (https)
+      secure: process.env.NODE_ENV === "production",
       path: "/",
       maxAge: 7 * 24 * 60 * 60,
     });
 
     return { success: true };
-
   } catch (err) {
-    console.error("LOGIN ERROR:", err);
-    return { error: "Login failed. Try again later." };
+    console.error("LOGIN ACTION ERROR:", err);
+    return { error: "Login failed" };
   }
 }
