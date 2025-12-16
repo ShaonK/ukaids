@@ -1,9 +1,5 @@
-"use client";
+import LoginLayoutClient from "./LoginLayoutClient";
 
 export default function LoginLayout({ children }) {
-  return (
-    <div className="w-[360px] min-h-screen mx-auto bg-[#121212] text-white overflow-hidden">
-      {children}
-    </div>
-  );
+  return <LoginLayoutClient>{children}</LoginLayoutClient>;
 }

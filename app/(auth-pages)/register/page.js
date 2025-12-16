@@ -3,7 +3,13 @@ import RegisterClient from "./RegisterClient";
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div className="text-white text-center mt-10">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="text-center py-20 text-gray-400">
+          Loading register...
+        </div>
+      }
+    >
       <RegisterClient />
     </Suspense>
   );
