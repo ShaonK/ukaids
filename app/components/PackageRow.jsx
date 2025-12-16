@@ -2,18 +2,19 @@
 
 export default function PackageRow({
   pkg,
-  packages,
-  activePackage,
+  packages,        // 👈 master package list
+  activePackage,   // 👈 user active package
   onBuy,
   onUpgrade,
 }) {
   const isActive = activePackage?.packageId === pkg.id;
 
-  const activePkg = packages.find(
+  // ✅ FIND active package position from master list
+  const activePkgFromList = packages.find(
     (p) => p.id === activePackage?.packageId
   );
 
-  const activePosition = activePkg?.position ?? null;
+  const activePosition = activePkgFromList?.position ?? null;
 
   const canUpgrade =
     activePosition !== null && pkg.position > activePosition;
@@ -38,7 +39,7 @@ export default function PackageRow({
 
         {!isActive && canUpgrade && (
           <button
-            onClick={() => onUpgrade(pkg.id)}   // ✅ ID only
+            onClick={() => onUpgrade(pkg.id)}
             className="px-4 py-2 rounded-md text-sm font-semibold
               bg-gradient-to-r from-purple-500 to-pink-500 text-white"
           >
@@ -48,7 +49,7 @@ export default function PackageRow({
 
         {noActivePackage && (
           <button
-            onClick={() => onBuy(pkg.id)}       // ✅ ID only
+            onClick={() => onBuy(pkg.id)}
             className="px-4 py-2 rounded-md text-sm font-semibold
               bg-gradient-to-r from-[#3B82F6] to-[#EC7B03] text-white"
           >

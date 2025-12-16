@@ -1,13 +1,9 @@
 // app/api/user/task/complete/route.js
-export const dynamic = "force-dynamic";
-
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 import { creditWallet } from "@/lib/walletService";
-import { onRoiGenerated } from "@/lib/onRoiGenerated";
-import { updateUserActiveStatus } from "@/lib/updateUserActiveStatus";
 
-const INTERVAL_MS = 60 * 1000; // 🔧 DEV = 1 minute
+const TASK_INTERVAL_MS = 60 * 1000; // DEV MODE (1 min)
 
 export async function POST() {
   try {
@@ -16,116 +12,85 @@ export async function POST() {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 🔹 User status check
-    const liveUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: {
-        isActive: true,
-        isBlocked: true,
-        isSuspended: true,
-      },
-    });
+    const userId = user.id;
 
-    if (!liveUser.isActive || liveUser.isBlocked || liveUser.isSuspended) {
-      return Response.json(
-        { error: "Inactive account" },
-        { status: 403 }
-      );
-    }
-
-    // 🔹 Active package
-    const activePackage = await prisma.userPackage.findFirst({
+    // 🔎 Load active package
+    const activePkg = await prisma.userPackage.findFirst({
       where: {
-        userId: user.id,
+        userId,
         isActive: true,
-      },
-      include: {
-        package: true,
-      },
-      orderBy: {
-        startedAt: "desc",
       },
     });
 
-    if (!activePackage) {
+    if (!activePkg) {
       return Response.json(
         { error: "No active package" },
         { status: 400 }
       );
     }
 
-    const nowMs = Date.now();
+    const now = Date.now();
 
-    const lastRunMs = activePackage.lastRoiAt
-      ? new Date(activePackage.lastRoiAt).getTime()
-      : new Date(activePackage.startedAt).getTime();
+    // ⏱ Cooldown base
+    const baseTime = activePkg.lastRoiAt
+      ? new Date(activePkg.lastRoiAt).getTime()
+      : new Date(activePkg.startedAt).getTime();
 
-    const nextRunMs = lastRunMs + INTERVAL_MS;
+    const isReady = now - baseTime >= TASK_INTERVAL_MS;
 
-    // 🔒 Cooldown check
-    if (nowMs < nextRunMs) {
+    // 🔐 Double click guard
+    if (!isReady) {
       return Response.json(
-        { error: "Task not ready yet" },
-        { status: 429 }
-      );
-    }
-
-    // 🔹 ROI calculation (PACKAGE BASED)
-    const roiPercent = 0.02;
-    const roiUnit = Number((activePackage.amount * roiPercent).toFixed(6));
-
-    const maxEarnable = Number((activePackage.amount * 2).toFixed(6));
-    const prevTotal = Number(activePackage.totalEarned);
-
-    if (prevTotal >= maxEarnable) {
-      return Response.json(
-        { error: "ROI cap reached" },
+        { error: "Task not ready" },
         { status: 400 }
       );
     }
 
-    const payout = Math.min(roiUnit, maxEarnable - prevTotal);
+    const roiAmount = Number(
+      (activePkg.amount * 0.02).toFixed(6)
+    );
 
-    // 🔹 Credit ROI wallet
-    await creditWallet({
-      userId: user.id,
-      walletType: "ROI",
-      amount: payout,
-      source: "TASK_ROI",
-      note: `ROI from package ${activePackage.package.name}`,
+    await prisma.$transaction(async (tx) => {
+      // 1️⃣ Credit ROI wallet
+      await creditWallet({
+        userId,
+        walletType: "ROI",
+        amount: roiAmount,
+        source: "TASK_ROI",
+        note: "Task completed ROI",
+      });
+
+      // 2️⃣ 🔥 SAVE ROI HISTORY (THIS WAS MISSING)
+      await tx.roiHistory.create({
+        data: {
+          userId,
+          amount: roiAmount,
+          earningId: null, // optional, future-safe
+        },
+      });
+
+      // 3️⃣ Update package task context
+      await tx.userPackage.update({
+        where: { id: activePkg.id },
+        data: {
+          lastRoiAt: new Date(),
+          totalEarned: {
+            increment: roiAmount,
+          },
+        },
+      });
     });
 
-    // 🔹 Update package progress & timer
-    await prisma.userPackage.update({
-      where: { id: activePackage.id },
-      data: {
-        totalEarned: { increment: payout },
-        lastRoiAt: new Date(nowMs), // 🔥 ONLY TIMER SOURCE
-      },
+    return Response.json({
+      success: true,
+      roi: roiAmount,
     });
-
-    // 🔹 ROI history
-    const roiHistory = await prisma.roiHistory.create({
-      data: {
-        userId: user.id,
-        amount: payout,
-      },
-    });
-
-    // 🔹 Level income
-    await onRoiGenerated({
-      roiUserId: user.id,
-      roiAmount: payout,
-      roiEventId: roiHistory.id,
-      source: "task",
-    });
-
-    await updateUserActiveStatus(user.id);
-
-    return Response.json({ success: true });
 
   } catch (err) {
-    console.error("TASK COMPLETE ERROR:", err);
-    return Response.json({ error: "Server error" }, { status: 500 });
+    console.error("❌ TASK COMPLETE ERROR:", err);
+    return Response.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
   }
 }

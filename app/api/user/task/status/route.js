@@ -1,10 +1,8 @@
 // app/api/user/task/status/route.js
-export const dynamic = "force-dynamic";
-
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 
-const INTERVAL_MS = 60 * 1000; // 🔧 DEV = 1 minute
+const TASK_INTERVAL_MS = 60 * 1000; // dev: 1 minute
 
 export async function GET() {
   try {
@@ -13,47 +11,54 @@ export async function GET() {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 🔹 Active package
-    const activePackage = await prisma.userPackage.findFirst({
+    const userId = user.id;
+
+    // 🔎 Load active package
+    const activePkg = await prisma.userPackage.findFirst({
       where: {
-        userId: user.id,
+        userId,
         isActive: true,
-      },
-      orderBy: {
-        startedAt: "desc",
       },
     });
 
-    if (!activePackage) {
+    if (!activePkg) {
       return Response.json({
         success: true,
-        hasEarning: false,
+        earning: null,
       });
     }
 
-    const nowMs = Date.now();
+    const now = Date.now();
 
-    const lastRunMs = activePackage.lastRoiAt
-      ? new Date(activePackage.lastRoiAt).getTime()
-      : new Date(activePackage.startedAt).getTime();
+    // ✅ FIX: baseTime (lastRoiAt OR startedAt)
+    const baseTime = activePkg.lastRoiAt
+      ? new Date(activePkg.lastRoiAt).getTime()
+      : new Date(activePkg.startedAt).getTime();
 
-    const nextRunMs = lastRunMs + INTERVAL_MS;
-    const isReady = nowMs >= nextRunMs;
+    const isReady = now - baseTime >= TASK_INTERVAL_MS;
+
+    const nextRunMs = isReady
+      ? null
+      : baseTime + TASK_INTERVAL_MS;
+
+    const roiAmount = Number(
+      (activePkg.amount * 0.02).toFixed(6)
+    );
 
     return Response.json({
       success: true,
-      hasEarning: true,
       earning: {
         isReady,
         nextRunMs,
-        packageAmount: Number(activePackage.amount),
-        roiPercent: 2,
-        totalEarned: Number(activePackage.totalEarned),
+        amount: roiAmount,
       },
     });
 
   } catch (err) {
-    console.error("TASK STATUS ERROR:", err);
-    return Response.json({ error: "Server error" }, { status: 500 });
+    console.error("❌ TASK STATUS ERROR:", err);
+    return Response.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
   }
 }

@@ -1,13 +1,17 @@
 // app/api/user/package/upgrade/route.js
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyUserFromToken } from "@/lib/auth";
+import { getUser } from "@/lib/getUser";
+import { ensureUserActive } from "@/lib/updateUserActiveStatus";
 
 export async function POST(req) {
   try {
-    const { packageId } = await req.json();
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
+    const { packageId } = await req.json();
     if (!packageId) {
       return NextResponse.json(
         { error: "Package ID missing" },
@@ -15,34 +19,24 @@ export async function POST(req) {
       );
     }
 
-    // 🔐 AUTH
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    const user = await verifyUserFromToken(token);
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
     const userId = user.id;
 
-    // 🔎 Load new package
     const newPackage = await prisma.package.findUnique({
-      where: { id: packageId },
+      where: { id: Number(packageId) },
     });
 
-    if (!newPackage) {
+    if (!newPackage || !newPackage.isActive) {
       return NextResponse.json(
-        { error: "Package not found" },
-        { status: 404 }
+        { error: "Invalid package" },
+        { status: 400 }
       );
     }
 
     await prisma.$transaction(async (tx) => {
-      // 1️⃣ Wallet check
+      // 1️⃣ Ensure user active (আগের ফিক্স অক্ষত)
+      await ensureUserActive(tx, userId);
+
+      // 2️⃣ Load wallet
       const wallet = await tx.wallet.findUnique({
         where: { userId },
       });
@@ -51,17 +45,19 @@ export async function POST(req) {
         throw new Error("Insufficient balance");
       }
 
-      // 2️⃣ Active package
+      // 3️⃣ Load active package
       const activePkg = await tx.userPackage.findFirst({
         where: { userId, isActive: true },
       });
 
-      // 3️⃣ Refund old package → return wallet
+      // 4️⃣ পুরোনো package বন্ধ + deposit return
       if (activePkg) {
         await tx.wallet.update({
           where: { userId },
           data: {
-            returnWallet: { increment: activePkg.amount },
+            returnWallet: {
+              increment: activePkg.amount, // ✅ old deposit → return wallet
+            },
           },
         });
 
@@ -74,23 +70,32 @@ export async function POST(req) {
         });
       }
 
-      // 4️⃣ Debit account wallet
+      // 5️⃣ 🔥 একটাই wallet update (ACCOUNT debit + DEPOSIT replace)
       await tx.wallet.update({
         where: { userId },
         data: {
-          mainWallet: { decrement: newPackage.amount },
+          mainWallet: {
+            decrement: newPackage.amount,
+          },
+          depositWallet: newPackage.amount, // ✅ replace (NO increment)
         },
       });
 
-      // 5️⃣ Update deposit wallet = active package amount (NO MERGE)
-      await tx.wallet.update({
-        where: { userId },
+      // 6️⃣ Wallet transaction (ACCOUNT history)
+      await tx.walletTransaction.create({
         data: {
-          depositWallet: newPackage.amount,
+          userId,
+          walletType: "ACCOUNT",
+          direction: "DEBIT",
+          amount: newPackage.amount,
+          balanceBefore: wallet.mainWallet,
+          balanceAfter: wallet.mainWallet - newPackage.amount,
+          source: "PACKAGE_UPGRADE",
+          note: `Upgraded to ${newPackage.name}`,
         },
       });
 
-      // 6️⃣ Create new active package
+      // 7️⃣ New active package
       await tx.userPackage.create({
         data: {
           userId,
@@ -98,6 +103,9 @@ export async function POST(req) {
           amount: newPackage.amount,
           isActive: true,
           source: "self",
+          totalEarned: 0,
+          lastRoiAt: null,
+          startedAt: new Date(),
         },
       });
     });
@@ -105,7 +113,7 @@ export async function POST(req) {
     return NextResponse.json({ success: true });
 
   } catch (err) {
-    console.error("UPGRADE ERROR:", err);
+    console.error("PACKAGE UPGRADE ERROR:", err);
     return NextResponse.json(
       { error: err.message || "Upgrade failed" },
       { status: 500 }

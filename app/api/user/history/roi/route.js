@@ -14,20 +14,19 @@ function getDateRange(fromStr, toStr) {
 export async function GET(req) {
   try {
     const user = await getUser();
-    if (!user) return Response.json({ history: [], totalPages: 1 });
+    if (!user) {
+      return Response.json({ history: [], totalPages: 1 });
+    }
 
     const { searchParams } = new URL(req.url);
-
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 10;
     const skip = (page - 1) * limit;
 
     const fromStr = searchParams.get("from");
     const toStr = searchParams.get("to");
-
     const range = getDateRange(fromStr, toStr);
 
-    // WHERE CONDITION
     let where = { userId: user.id };
     if (range) {
       where.createdAt = {};
@@ -41,15 +40,23 @@ export async function GET(req) {
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
-        include: { earning: true }
+        include: {
+          earning: {
+            select: {
+              depositId: true
+            }
+          }
+        }
       }),
       prisma.roiHistory.count({ where })
     ]);
 
     const formatted = rows.map(r => ({
       amount: Number(r.amount),
-      type: "ROI",
-      from: `Deposit #${r.earning?.depositId ?? "?"}`,
+      type: "ROI Income",
+      from: r.earning?.depositId
+        ? `Deposit #${r.earning.depositId}`
+        : "ROI Task Earning",
       createdAt: r.createdAt
     }));
 

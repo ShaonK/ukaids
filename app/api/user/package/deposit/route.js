@@ -1,116 +1,123 @@
-// app/api/user/package/deposit/route.js
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 import { debitWallet, creditWallet } from "@/lib/walletService";
+import { ensureUserActive } from "@/lib/updateUserActiveStatus";
+
+const INITIAL_ROI_PERCENT = 0.02;
 
 export async function POST(req) {
-    try {
-        // 🔐 AUTH USER
-        const user = await getUser();
-        if (!user) {
-            return Response.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const body = await req.json();
-        const { packageId } = body;
-
-        if (!packageId) {
-            return Response.json(
-                { error: "Package ID is required" },
-                { status: 400 }
-            );
-        }
-
-        const userId = user.id;
-
-        // ---------------------------------
-        // 1) Load package
-        // ---------------------------------
-        const pkg = await prisma.package.findUnique({
-            where: { id: Number(packageId) },
-        });
-
-        if (!pkg || !pkg.isActive) {
-            return Response.json(
-                { error: "Invalid or inactive package" },
-                { status: 400 }
-            );
-        }
-
-        const amount = Number(pkg.amount);
-
-        // ---------------------------------
-        // 2) Load wallet
-        // ---------------------------------
-        const wallet = await prisma.wallet.findUnique({
-            where: { userId },
-        });
-
-        if (!wallet || wallet.mainWallet < amount) {
-            return Response.json(
-                { error: "Insufficient account balance" },
-                { status: 400 }
-            );
-        }
-
-        // ---------------------------------
-        // 3) Check active package
-        // ---------------------------------
-        const activePkg = await prisma.userPackage.findFirst({
-            where: {
-                userId,
-                isActive: true,
-            },
-        });
-
-        if (activePkg) {
-            return Response.json(
-                { error: "Active package exists. Upgrade required." },
-                { status: 400 }
-            );
-        }
-
-        // ---------------------------------
-        // 4) ATOMIC TRANSACTION
-        // ---------------------------------
-        await prisma.$transaction(async () => {
-            // 4.1 Debit ACCOUNT wallet
-            await debitWallet({
-                userId,
-                walletType: "ACCOUNT",
-                amount,
-                source: "PACKAGE_DEPOSIT",
-                note: `Package purchase (${pkg.name})`,
-            });
-
-            // 4.2 Credit DEPOSIT wallet
-            await creditWallet({
-                userId,
-                walletType: "DEPOSIT",
-                amount,
-                source: "PACKAGE_DEPOSIT",
-                note: `Package activated (${pkg.name})`,
-            });
-
-            // 4.3 Create active user package
-            await prisma.userPackage.create({
-                data: {
-                    userId,
-                    packageId: pkg.id,
-                    amount,
-                    source: "self",
-                    isActive: true,
-                },
-            });
-        });
-
-        return Response.json({ success: true });
-
-    } catch (err) {
-        console.error("❌ PACKAGE DEPOSIT ERROR:", err);
-        return Response.json(
-            { error: "Server error" },
-            { status: 500 }
-        );
+  try {
+    const user = await getUser();
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const { packageId } = await req.json();
+    if (!packageId) {
+      return Response.json(
+        { error: "Package ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const userId = user.id;
+
+    const pkg = await prisma.package.findUnique({
+      where: { id: Number(packageId) },
+    });
+
+    if (!pkg || !pkg.isActive) {
+      return Response.json({ error: "Invalid package" }, { status: 400 });
+    }
+
+    const amount = Number(pkg.amount);
+
+    await prisma.$transaction(async (tx) => {
+      // 1️⃣ Ensure user active
+      await ensureUserActive(tx, userId);
+
+      const wallet = await tx.wallet.findUnique({
+        where: { userId },
+      });
+
+      if (!wallet || wallet.mainWallet < amount) {
+        throw new Error("Insufficient balance");
+      }
+
+      const activePkg = await tx.userPackage.findFirst({
+        where: { userId, isActive: true },
+      });
+
+      if (activePkg) {
+        throw new Error("Active package exists. Upgrade required.");
+      }
+
+      const initialRoi = Number((amount * INITIAL_ROI_PERCENT).toFixed(6));
+
+      // 2️⃣ Debit ACCOUNT
+      await debitWallet({
+        tx,
+        userId,
+        walletType: "ACCOUNT",
+        amount,
+        source: "PACKAGE_BUY",
+        note: `Package purchase (${pkg.name})`,
+      });
+
+      // 3️⃣ Credit DEPOSIT
+      await creditWallet({
+        tx,
+        userId,
+        walletType: "DEPOSIT",
+        amount,
+        source: "PACKAGE_BUY",
+        note: `Package activated (${pkg.name})`,
+      });
+
+      // 4️⃣ Create package
+      await tx.userPackage.create({
+        data: {
+          userId,
+          packageId: pkg.id,
+          amount,
+          isActive: true,
+          source: "self",
+          totalEarned: initialRoi,
+          lastRoiAt: new Date(),
+          startedAt: new Date(),
+        },
+      });
+
+      // 5️⃣ Instant ROI
+      await creditWallet({
+        tx,
+        userId,
+        walletType: "ROI",
+        amount: initialRoi,
+        source: "INITIAL_ROI",
+        note: `Initial ROI on ${pkg.name}`,
+      });
+
+      // 6️⃣ ROI History
+      await tx.roiHistory.create({
+        data: {
+          userId,
+          amount: initialRoi,
+          earningId: null,
+        },
+      });
+    });
+
+    return Response.json({
+      success: true,
+      message: "Package activated successfully",
+    });
+
+  } catch (err) {
+    console.error("PACKAGE DEPOSIT ERROR:", err);
+    return Response.json(
+      { error: err.message || "Server error" },
+      { status: 500 }
+    );
+  }
 }
