@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 import { debitWallet, creditWallet } from "@/lib/walletService";
 import { ensureUserActive } from "@/lib/updateUserActiveStatus";
+import { distributeReferralCommission } from "@/lib/referralService";
 
 const INITIAL_ROI_PERCENT = 0.02;
 
@@ -74,7 +75,7 @@ export async function POST(req) {
         note: `Package activated (${pkg.name})`,
       });
 
-      // 4️⃣ Create package
+      // 4️⃣ Create active package
       await tx.userPackage.create({
         data: {
           userId,
@@ -98,13 +99,21 @@ export async function POST(req) {
         note: `Initial ROI on ${pkg.name}`,
       });
 
-      // 6️⃣ ROI History
+      // 6️⃣ ROI history
       await tx.roiHistory.create({
         data: {
           userId,
           amount: initialRoi,
           earningId: null,
         },
+      });
+
+      // 🔥 7️⃣ REFERRAL COMMISSION (10 → 3 → 2)
+      await distributeReferralCommission({
+        tx,
+        buyerId: userId,
+        packageAmount: amount,
+        source: "PACKAGE_BUY",
       });
     });
 

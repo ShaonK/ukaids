@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 export default function RechargePage() {
   const router = useRouter();
 
-  // ⭐ তোমার Binance Deposit Address এখানে বসানো হলো
   const depositAddress = "TLaot66AMVYRtxwGeVdQgnmrrv6X9txA6L";
 
   const [amount, setAmount] = useState("");
@@ -14,17 +13,14 @@ export default function RechargePage() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // ⭐ QR Image URL
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${depositAddress}&size=220x220`;
 
-  // ⭐ Copy Function
   function copyAddress() {
     navigator.clipboard.writeText(depositAddress);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
 
-  // ⭐ Submit Deposit Function
   async function handleSubmit(e) {
     e.preventDefault();
 
@@ -36,18 +32,19 @@ export default function RechargePage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/user/deposit", {
+      const res = await fetch("/api/user/recharge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount, trxId: trx }),
+        body: JSON.stringify({
+          amount,
+          trxId: trx,
+        }),
       });
 
       const data = await res.json();
 
       if (data.success) {
-        alert("Deposit request submitted!");
-
-        // ⭐ Redirect to user dashboard
+        alert("Recharge request submitted. Await admin approval.");
         router.push("/user");
       } else {
         alert(data.error || "Something went wrong");
@@ -65,8 +62,6 @@ export default function RechargePage() {
       <h2 className="text-xl font-semibold mb-3">Recharge / Deposit</h2>
 
       <div className="w-[328px] bg-[#111] rounded-lg p-4 flex flex-col items-center">
-
-        {/* ⭐ Address Above QR */}
         <div
           onClick={copyAddress}
           className="mb-3 bg-[#222] px-3 py-2 rounded cursor-pointer text-center text-sm font-mono"
@@ -77,7 +72,6 @@ export default function RechargePage() {
           </div>
         </div>
 
-        {/* QR Image */}
         <img
           src={qrUrl}
           alt="QR Code"
@@ -86,20 +80,6 @@ export default function RechargePage() {
           className="rounded mb-4"
         />
 
-        {/* Payment Info */}
-        <div className="w-full bg-[#0e0e0e] rounded p-3 mb-3 text-sm">
-          <div className="mb-2">
-            <div className="text-xs text-gray-300">Currency</div>
-            <div className="font-semibold">USDT TRC20</div>
-          </div>
-
-          <div className="mb-2">
-            <div className="text-xs text-gray-300">Deposit Address</div>
-            <div className="font-mono text-sm break-words">{depositAddress}</div>
-          </div>
-        </div>
-
-        {/* Form */}
         <form className="w-full" onSubmit={handleSubmit}>
           <label className="text-xs text-gray-300">Transaction ID *</label>
           <input
@@ -114,7 +94,7 @@ export default function RechargePage() {
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             className="w-full px-3 py-2 rounded-md mb-3 text-black"
-            placeholder="Amount sent (e.g. 25)"
+            placeholder="Amount sent"
           />
 
           <button

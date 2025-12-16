@@ -2,48 +2,102 @@ import prisma from "./lib/prisma.js";
 import bcrypt from "bcryptjs";
 
 async function main() {
-    console.log("⏳ Running Seeder...");
+  console.log("⏳ Running Seeder...");
 
-    // Check if root already exists
-    const exists = await prisma.user.findUnique({
-        where: { username: "root" },
+  /**
+   * =========================
+   * 1️⃣ ADMIN CREATE
+   * =========================
+   */
+  const adminExists = await prisma.admin.findFirst();
+
+  if (!adminExists) {
+    const adminPassword = await bcrypt.hash("admin123", 10);
+
+    const admin = await prisma.admin.create({
+      data: {
+        username: "admin",
+        password: adminPassword,
+      },
     });
 
-    if (exists) {
-        console.log("✔ Root user already exists (ID:", exists.id + ")");
-        return;
-    }
+    console.log("✅ Admin created:", admin.username);
+  } else {
+    console.log("✔ Admin already exists");
+  }
 
-    // Hash passwords
-    const passwordHash = await bcrypt.hash("12345", 10);
-    const txnPasswordHash = await bcrypt.hash("67890", 10);
+  /**
+   * =========================
+   * 2️⃣ ROOT USER CREATE
+   * =========================
+   */
+  const rootExists = await prisma.user.findUnique({
+    where: { username: "root" },
+  });
 
-    // Create root user
-    const user = await prisma.user.create({
-        data: {
-            fullname: "Root User",
-            username: "root",
-            referralCode: "none",
-            mobile: "0000000000",
-            email: "root@mail.com",
-            password: passwordHash,
-            txnPassword: txnPasswordHash,
-            isActive: true,
-        },
-    });
+  if (rootExists) {
+    console.log("✔ Root user already exists (ID:", rootExists.id + ")");
+    return;
+  }
 
-    // Create wallet for root user
-    await prisma.wallet.create({
-        data: { userId: user.id },
-    });
+  const passwordHash = await bcrypt.hash("12345", 10);
+  const txnPasswordHash = await bcrypt.hash("67890", 10);
 
-    console.log("🎉 Root user created successfully!");
-    console.log("🆔 User ID:", user.id);
+  const rootUser = await prisma.user.create({
+    data: {
+      fullname: "Root User",
+      username: "root",
+      referralCode: "ROOT000",
+      mobile: "0000000000",
+      email: "root@mail.com",
+      password: passwordHash,
+      txnPassword: txnPasswordHash,
+      isActive: true, // 🔥 ACTIVE
+    },
+  });
+
+  console.log("✅ Root user created:", rootUser.username);
+
+  /**
+   * =========================
+   * 3️⃣ WALLET CREATE
+   * =========================
+   */
+  await prisma.wallet.create({
+    data: {
+      userId: rootUser.id,
+      mainWallet: 0,
+      depositWallet: 0,
+      roiWallet: 0,
+      referralWallet: 0,
+      levelWallet: 0,
+      returnWallet: 0,
+    },
+  });
+
+  console.log("✅ Wallet created for root user");
+
+  /**
+   * =========================
+   * 4️⃣ USER STATUS HISTORY
+   * =========================
+   */
+  await prisma.userStatusHistory.create({
+    data: {
+      userId: rootUser.id,
+      status: "active",
+      reason: "Initial root user activation",
+    },
+  });
+
+  console.log("✅ User status history added");
+
+  console.log("🎉 SEED COMPLETED SUCCESSFULLY");
 }
 
 main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error("❌ Seeder failed:", error);
-        process.exit(1);
-    });
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error("❌ Seeder failed:", err);
+    process.exit(1);
+  });

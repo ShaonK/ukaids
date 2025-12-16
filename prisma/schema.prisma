@@ -382,15 +382,18 @@ model RoiLevelIncome {
  */
 
 model ReferralCommissionHistory {
-  id         Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
+
   userId     Int
   fromUserId Int
-  depositId  Int
-  level      Int
-  commission Float
-  createdAt  DateTime @default(now())
+  depositId  Int?
 
-  user     User    @relation("ReferralToUser", fields: [userId], references: [id])
-  fromUser User    @relation("ReferralFromUser", fields: [fromUserId], references: [id])
-  deposit  Deposit @relation(fields: [depositId], references: [id])
+  level      Int
+  commission Decimal @db.Decimal(18, 6)
+
+  user     User     @relation("ReferralToUser", fields: [userId], references: [id])
+  fromUser User     @relation("ReferralFromUser", fields: [fromUserId], references: [id])
+  deposit  Deposit? @relation(fields: [depositId], references: [id])
+
+  createdAt DateTime @default(now())
 }

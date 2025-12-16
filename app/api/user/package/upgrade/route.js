@@ -1,8 +1,8 @@
-// app/api/user/package/upgrade/route.js
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/getUser";
 import { ensureUserActive } from "@/lib/updateUserActiveStatus";
+import { distributeReferralCommission } from "@/lib/referralService";
 
 export async function POST(req) {
   try {
@@ -33,10 +33,9 @@ export async function POST(req) {
     }
 
     await prisma.$transaction(async (tx) => {
-      // 1️⃣ Ensure user active (আগের ফিক্স অক্ষত)
+      // 1️⃣ Ensure user active
       await ensureUserActive(tx, userId);
 
-      // 2️⃣ Load wallet
       const wallet = await tx.wallet.findUnique({
         where: { userId },
       });
@@ -45,18 +44,17 @@ export async function POST(req) {
         throw new Error("Insufficient balance");
       }
 
-      // 3️⃣ Load active package
       const activePkg = await tx.userPackage.findFirst({
         where: { userId, isActive: true },
       });
 
-      // 4️⃣ পুরোনো package বন্ধ + deposit return
+      // 2️⃣ Close old package + return deposit
       if (activePkg) {
         await tx.wallet.update({
           where: { userId },
           data: {
             returnWallet: {
-              increment: activePkg.amount, // ✅ old deposit → return wallet
+              increment: activePkg.amount,
             },
           },
         });
@@ -70,18 +68,18 @@ export async function POST(req) {
         });
       }
 
-      // 5️⃣ 🔥 একটাই wallet update (ACCOUNT debit + DEPOSIT replace)
+      // 3️⃣ ACCOUNT debit + DEPOSIT replace
       await tx.wallet.update({
         where: { userId },
         data: {
           mainWallet: {
             decrement: newPackage.amount,
           },
-          depositWallet: newPackage.amount, // ✅ replace (NO increment)
+          depositWallet: newPackage.amount,
         },
       });
 
-      // 6️⃣ Wallet transaction (ACCOUNT history)
+      // 4️⃣ Wallet history
       await tx.walletTransaction.create({
         data: {
           userId,
@@ -95,7 +93,7 @@ export async function POST(req) {
         },
       });
 
-      // 7️⃣ New active package
+      // 5️⃣ New active package
       await tx.userPackage.create({
         data: {
           userId,
@@ -107,6 +105,14 @@ export async function POST(req) {
           lastRoiAt: null,
           startedAt: new Date(),
         },
+      });
+
+      // 🔥 6️⃣ Referral commission (10 → 3 → 2)
+      await distributeReferralCommission({
+        tx,
+        buyerId: userId,
+        packageAmount: newPackage.amount,
+        source: "PACKAGE_UPGRADE",
       });
     });
 
