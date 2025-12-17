@@ -6,7 +6,7 @@ export default function PackageRow({
   pkg,
   packages,
   activePackage,
-  accountBalance, // 🔥 NEW (mainWallet)
+  accountBalance,
   onBuy,
   onUpgrade,
 }) {

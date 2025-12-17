@@ -32,15 +32,16 @@ export async function POST(req) {
       );
     }
 
+    const upgradeAmount = Number(newPackage.amount);
+
     await prisma.$transaction(async (tx) => {
-      // 1️⃣ Ensure user active
       await ensureUserActive(tx, userId);
 
       const wallet = await tx.wallet.findUnique({
         where: { userId },
       });
 
-      if (!wallet || wallet.mainWallet < newPackage.amount) {
+      if (!wallet || Number(wallet.mainWallet) < upgradeAmount) {
         throw new Error("Insufficient balance");
       }
 
@@ -48,13 +49,12 @@ export async function POST(req) {
         where: { userId, isActive: true },
       });
 
-      // 2️⃣ Close old package + return deposit
       if (activePkg) {
         await tx.wallet.update({
           where: { userId },
           data: {
             returnWallet: {
-              increment: activePkg.amount,
+              increment: Number(activePkg.amount),
             },
           },
         });
@@ -68,37 +68,21 @@ export async function POST(req) {
         });
       }
 
-      // 3️⃣ ACCOUNT debit + DEPOSIT replace
       await tx.wallet.update({
         where: { userId },
         data: {
           mainWallet: {
-            decrement: newPackage.amount,
+            decrement: upgradeAmount,
           },
-          depositWallet: newPackage.amount,
+          depositWallet: upgradeAmount,
         },
       });
 
-      // 4️⃣ Wallet history
-      await tx.walletTransaction.create({
-        data: {
-          userId,
-          walletType: "ACCOUNT",
-          direction: "DEBIT",
-          amount: newPackage.amount,
-          balanceBefore: wallet.mainWallet,
-          balanceAfter: wallet.mainWallet - newPackage.amount,
-          source: "PACKAGE_UPGRADE",
-          note: `Upgraded to ${newPackage.name}`,
-        },
-      });
-
-      // 5️⃣ New active package
       await tx.userPackage.create({
         data: {
           userId,
           packageId: newPackage.id,
-          amount: newPackage.amount,
+          amount: upgradeAmount,
           isActive: true,
           source: "self",
           totalEarned: 0,
@@ -107,17 +91,15 @@ export async function POST(req) {
         },
       });
 
-      // 🔥 6️⃣ Referral commission (10 → 3 → 2)
       await distributeReferralCommission({
         tx,
         buyerId: userId,
-        packageAmount: newPackage.amount,
+        packageAmount: upgradeAmount,
         source: "PACKAGE_UPGRADE",
       });
     });
 
     return NextResponse.json({ success: true });
-
   } catch (err) {
     console.error("PACKAGE UPGRADE ERROR:", err);
     return NextResponse.json(

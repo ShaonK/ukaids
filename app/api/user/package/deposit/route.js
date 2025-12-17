@@ -34,14 +34,13 @@ export async function POST(req) {
     const amount = Number(pkg.amount);
 
     await prisma.$transaction(async (tx) => {
-      // 1️⃣ Ensure user active
       await ensureUserActive(tx, userId);
 
       const wallet = await tx.wallet.findUnique({
         where: { userId },
       });
 
-      if (!wallet || wallet.mainWallet < amount) {
+      if (!wallet || Number(wallet.mainWallet) < amount) {
         throw new Error("Insufficient balance");
       }
 
@@ -53,9 +52,10 @@ export async function POST(req) {
         throw new Error("Active package exists. Upgrade required.");
       }
 
-      const initialRoi = Number((amount * INITIAL_ROI_PERCENT).toFixed(6));
+      const initialRoi = Number(
+        (amount * INITIAL_ROI_PERCENT).toFixed(6)
+      );
 
-      // 2️⃣ Debit ACCOUNT
       await debitWallet({
         tx,
         userId,
@@ -65,7 +65,6 @@ export async function POST(req) {
         note: `Package purchase (${pkg.name})`,
       });
 
-      // 3️⃣ Credit DEPOSIT
       await creditWallet({
         tx,
         userId,
@@ -75,7 +74,6 @@ export async function POST(req) {
         note: `Package activated (${pkg.name})`,
       });
 
-      // 4️⃣ Create active package
       await tx.userPackage.create({
         data: {
           userId,
@@ -89,7 +87,6 @@ export async function POST(req) {
         },
       });
 
-      // 5️⃣ Instant ROI
       await creditWallet({
         tx,
         userId,
@@ -99,7 +96,6 @@ export async function POST(req) {
         note: `Initial ROI on ${pkg.name}`,
       });
 
-      // 6️⃣ ROI history
       await tx.roiHistory.create({
         data: {
           userId,
@@ -108,7 +104,6 @@ export async function POST(req) {
         },
       });
 
-      // 🔥 7️⃣ REFERRAL COMMISSION (10 → 3 → 2)
       await distributeReferralCommission({
         tx,
         buyerId: userId,
@@ -121,7 +116,6 @@ export async function POST(req) {
       success: true,
       message: "Package activated successfully",
     });
-
   } catch (err) {
     console.error("PACKAGE DEPOSIT ERROR:", err);
     return Response.json(

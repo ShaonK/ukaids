@@ -1,70 +1,46 @@
-// app/api/admin/deposit/approve/route.js
+import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { creditWallet } from "@/lib/walletService";
 
 export async function POST(req) {
   try {
-    const body = await req.json().catch(() => null);
-    const id = Number(body?.id || body?.depositId);
+    console.log("🚨 APPROVE API HIT");
 
-    if (!id) {
-      return Response.json({ error: "Recharge ID missing" }, { status: 400 });
-    }
+    const body = await req.json();
+    console.log("🧾 BODY =", body);
 
-    const recharge = await prisma.deposit.findUnique({
-      where: { id },
-    });
+    // 🔥 accept both id and depositId
+    const depositId = body.depositId ?? body.id;
 
-    if (!recharge || recharge.status !== "pending") {
-      return Response.json(
-        { error: "Invalid or processed recharge" },
+    if (!depositId) {
+      return NextResponse.json(
+        { error: "Deposit ID missing" },
         { status: 400 }
       );
     }
 
-    const admin = await prisma.admin.findFirst();
-    if (!admin) {
-      return Response.json({ error: "Admin missing" }, { status: 500 });
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await tx.deposit.update({
-        where: { id },
-        data: { status: "approved" },
-      });
-
-      await creditWallet({
-        userId: recharge.userId,
-        walletType: "ACCOUNT",
-        amount: recharge.amount,
-        source: "RECHARGE_APPROVE",
-        referenceId: id,
-        note: `Account recharge approved (trx: ${recharge.trxId})`,
-      });
-
-      await tx.approvedDeposit.create({
-        data: {
-          userId: recharge.userId,
-          amount: recharge.amount,
-          trxId: recharge.trxId,
-        },
-      });
-
-      await tx.depositHistory.create({
-        data: {
-          userId: recharge.userId,
-          depositId: id,
-          amount: recharge.amount,
-          trxId: recharge.trxId,
-          status: "recharge_approved",
-          processedBy: admin.id,
-        },
-      });
+    const deposit = await prisma.deposit.update({
+      where: { id: Number(depositId) },
+      data: { status: "approved" },
     });
 
-    return Response.json({ success: true });
+    // optional: wallet update
+    await prisma.wallet.update({
+      where: { userId: deposit.userId },
+      data: {
+        mainWallet: { increment: deposit.amount },
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Deposit approved",
+      id: depositId,
+    });
   } catch (err) {
-    console.error("❌ RECHARGE APPROVE ERROR:", err);
-    return Response.json({ error: "Server error" }, { status: 500 });
+    console.error("❌ APPROVE ERROR:", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
