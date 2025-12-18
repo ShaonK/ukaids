@@ -35,7 +35,7 @@ export default function HomeClient() {
             <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3
         bg-gradient-to-r from-black via-[#2b1a09] to-black">
                 <Image src="/logo.png" alt="UKAIDS" width={100} height={30} />
-                <Link href="/login" className="text-sm font-medium hover:text-orange-400">
+                <Link href="/login" className="text-sm font-medium text-white hover:text-orange-400">
                     Login
                 </Link>
             </header>
