@@ -10,5 +10,14 @@ export async function GET() {
         orderBy: { createdAt: "desc" },
     });
 
-    return Response.json({ items: rows });
+    return Response.json({
+        items: rows.map(w => ({
+            id: w.id,
+            amount: Number(w.amount),
+            commission: Number(w.commission),
+            netAmount: Number(w.netAmount),
+            status: w.status.toUpperCase(),
+            createdAt: w.createdAt,
+        })),
+    });
 }

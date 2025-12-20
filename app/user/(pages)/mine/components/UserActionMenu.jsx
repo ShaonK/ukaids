@@ -12,17 +12,19 @@ export default function UserActionMenu() {
     { title: "Withdrawal", icon: "/icons/withdraw.png", path: "/user/withdraw" },
     { title: "Recharge", icon: "/icons/recharge.png", path: "/user/mine/recharge" },
     { title: "Generation History", icon: "/icons/generation-history.png", path: "/user/generation-history" },
-    {title: "Balance Transfer History", icon: "/icons/balance-transfer-history.png", path: "/user/transfer/history"},
+    { title: "Balance Transfer History", icon: "/icons/balance-transfer-history.png", path: "/user/transfer/history" },
 
 
     { title: "Balance Transfer", icon: "/icons/transfer.png", path: "/user/transfer" },
-    
+
     //  ⭐ Packages Page
     { title: "Packages", icon: "/icons/package.png", path: "/user/packages" },
     // 👉 Wallet History Page
     { title: "Wallet History", icon: "/icons/wallet-change.png", path: "/user/wallet/history/" },
 
     // ⭐ NEW: Status History Menu
+    {title: "Withdraw History",icon: "/icons/status-history.png",path: "/user/withdraw-records"},
+
     { title: "Status History", icon: "/icons/status-history.png", path: "/user/status-history" },
 
     { title: "Invite", icon: "/icons/invite.png", path: "/user/invite" },

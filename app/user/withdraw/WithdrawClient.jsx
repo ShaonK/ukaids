@@ -10,6 +10,9 @@ export default function WithdrawClient() {
   const [pendingWithdraw, setPendingWithdraw] = useState(null);
 
   const [amount, setAmount] = useState("");
+  const [address, setAddress] = useState(null);
+  const [network, setNetwork] = useState(null);
+
   const [loadingMove, setLoadingMove] = useState(false);
   const [loadingAction, setLoadingAction] = useState(false);
   const [msg, setMsg] = useState("");
@@ -21,6 +24,23 @@ export default function WithdrawClient() {
     const res = await fetch("/api/user/wallet");
     const data = await res.json();
     setWallet(data.wallet);
+  }
+
+  /* ===============================
+     Load withdraw address
+  =============================== */
+  async function loadWithdrawAddress() {
+    const res = await fetch("/api/user/withdraw-address");
+    const data = await res.json();
+
+    if (!data?.address || !data?.network) {
+      router.replace("/user/withdraw-address");
+      return false;
+    }
+
+    setAddress(data.address);
+    setNetwork(data.network);
+    return true;
   }
 
   /* ===============================
@@ -38,25 +58,11 @@ export default function WithdrawClient() {
   }
 
   /* ===============================
-     Withdraw address guard
-  =============================== */
-  async function checkWithdrawAddress() {
-    const res = await fetch("/api/user/withdraw-address");
-    const data = await res.json();
-
-    if (!data?.address) {
-      router.replace("/user/withdraw-address");
-      return false;
-    }
-    return true;
-  }
-
-  /* ===============================
      On load
   =============================== */
   useEffect(() => {
     (async () => {
-      const ok = await checkWithdrawAddress();
+      const ok = await loadWithdrawAddress();
       if (ok) {
         await loadWallet();
         await loadPendingWithdraw();
@@ -91,13 +97,22 @@ export default function WithdrawClient() {
      Submit withdraw
   =============================== */
   async function submitWithdraw() {
+    if (!amount || Number(amount) <= 0) {
+      setMsg("Enter valid amount");
+      return;
+    }
+
     setLoadingAction(true);
     setMsg("");
 
     const res = await fetch("/api/user/withdraw", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: Number(amount) }),
+      body: JSON.stringify({
+        amount: Number(amount),
+        address,
+        network,
+      }),
     });
 
     const data = await res.json();
@@ -111,34 +126,6 @@ export default function WithdrawClient() {
     setMsg("✅ Withdraw request submitted");
     loadPendingWithdraw();
     loadWallet();
-  }
-
-  /* ===============================
-     Update withdraw
-  =============================== */
-  async function updateWithdraw() {
-    setLoadingAction(true);
-    setMsg("");
-
-    const res = await fetch("/api/user/withdraw/update", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: pendingWithdraw.id,
-        amount: Number(amount),
-      }),
-    });
-
-    const data = await res.json();
-    setLoadingAction(false);
-
-    if (!res.ok) {
-      setMsg(data.error || "Update failed");
-      return;
-    }
-
-    setMsg("✅ Withdraw updated");
-    loadPendingWithdraw();
   }
 
   /* ===============================
@@ -167,6 +154,7 @@ export default function WithdrawClient() {
     setMsg("❌ Withdraw cancelled");
     setPendingWithdraw(null);
     setAmount("");
+    loadWallet();
   }
 
   /* ===============================
@@ -200,20 +188,6 @@ export default function WithdrawClient() {
           <b className="text-green-400">${incomeTotal}</b>
         </p>
 
-        <div className="space-y-1 mb-3">
-          {incomeWallets
-            .filter((w) => w.amount > 0)
-            .map((w) => (
-              <div
-                key={w.label}
-                className="flex justify-between text-sm text-gray-300"
-              >
-                <span>{w.label}</span>
-                <span>${w.amount}</span>
-              </div>
-            ))}
-        </div>
-
         <button
           onClick={moveWallet}
           disabled={loadingMove || incomeTotal <= 0}
@@ -225,15 +199,19 @@ export default function WithdrawClient() {
 
       {/* WITHDRAW BOX */}
       <div className="bg-[#1A1A1A] p-4 rounded-xl">
-        <p className="text-sm mb-2">
-          Account Balance:{" "}
-          <b>${wallet?.mainWallet ?? 0}</b>
+        <p className="text-sm mb-1">
+          Account Balance: <b>${wallet?.mainWallet ?? 0}</b>
+        </p>
+
+        <p className="text-xs text-gray-400 mb-2">
+          {network} → {address}
         </p>
 
         <input
           type="number"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
+          placeholder="Enter amount"
           className="w-full p-2 bg-black border border-gray-700 rounded mb-3"
         />
 
@@ -252,23 +230,13 @@ export default function WithdrawClient() {
             Submit Withdraw
           </button>
         ) : (
-          <div className="flex gap-3">
-            <button
-              onClick={updateWithdraw}
-              disabled={loadingAction}
-              className="flex-1 py-2 bg-green-600 rounded"
-            >
-              Update
-            </button>
-
-            <button
-              onClick={cancelWithdraw}
-              disabled={loadingAction}
-              className="flex-1 py-2 bg-red-600 rounded"
-            >
-              Cancel
-            </button>
-          </div>
+          <button
+            onClick={cancelWithdraw}
+            disabled={loadingAction}
+            className="w-full py-2 bg-red-600 rounded"
+          >
+            Cancel Withdraw
+          </button>
         )}
 
         <p className="text-xs text-gray-500 text-center mt-2">

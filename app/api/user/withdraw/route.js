@@ -1,6 +1,6 @@
-// app/api/user/withdraw/route.js
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
+import { debitWallet } from "@/lib/walletService";
 
 export async function POST(req) {
   try {
@@ -9,61 +9,46 @@ export async function POST(req) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { amount } = await req.json();
-    const withdrawAmount = Number(amount);
+    const body = await req.json();
 
-    if (!withdrawAmount || withdrawAmount <= 0) {
-      return Response.json({ error: "Invalid amount" }, { status: 400 });
+    const withdrawAmount = Number(body.amount);
+    const address = body.address?.trim();
+    const network = body.network?.trim();
+
+    // ✅ STRICT VALIDATION
+    if (
+      !withdrawAmount ||
+      withdrawAmount <= 0 ||
+      !address ||
+      !network
+    ) {
+      return Response.json(
+        { error: "Amount, address and network are required" },
+        { status: 400 }
+      );
     }
 
-    // 🔒 Check existing pending withdraw
-    const existing = await prisma.withdrawRequest.findFirst({
-      where: {
+    await prisma.$transaction(async (tx) => {
+      // 🔴 Cut balance immediately (ONCE)
+      await debitWallet({
+        tx,
         userId: user.id,
-        status: "pending",
-      },
-    });
-
-    if (existing) {
-      return Response.json(
-        { error: "You already have a pending withdraw request" },
-        { status: 400 }
-      );
-    }
-
-    // 🔍 Wallet check
-    const wallet = await prisma.wallet.findUnique({
-      where: { userId: user.id },
-    });
-
-    if (!wallet || wallet.mainWallet < withdrawAmount) {
-      return Response.json(
-        { error: "Insufficient balance" },
-        { status: 400 }
-      );
-    }
-
-    // 🔍 Withdraw address check
-    const address = await prisma.withdrawAddress.findUnique({
-      where: { userId: user.id },
-    });
-
-    if (!address) {
-      return Response.json(
-        { error: "Withdraw address not set" },
-        { status: 400 }
-      );
-    }
-
-    // ✅ Create withdraw request (NO debit here)
-    await prisma.withdrawRequest.create({
-      data: {
-        userId: user.id,
+        walletType: "ACCOUNT",
         amount: withdrawAmount,
-        address: address.address,
-        network: address.network,
-        status: "pending",
-      },
+        source: "WITHDRAW_REQUEST",
+        note: "Withdraw request submitted",
+      });
+
+      // 🟡 Create withdraw request
+      await tx.withdrawRequest.create({
+        data: {
+          userId: user.id,
+          amount: withdrawAmount,
+          address,
+          network,
+          status: "pending",
+        },
+      });
     });
 
     return Response.json({
@@ -72,7 +57,10 @@ export async function POST(req) {
     });
 
   } catch (err) {
-    console.error("USER WITHDRAW ERROR:", err);
-    return Response.json({ error: "Withdraw failed" }, { status: 500 });
+    console.error("WITHDRAW ERROR:", err);
+    return Response.json(
+      { error: err.message || "Withdraw failed" },
+      { status: 500 }
+    );
   }
 }

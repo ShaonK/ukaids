@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import DashboardClient from "../DashboardClient";
+import WithdrawRecordsClient from "./WithdrawRecordsClient";
 
 export default function UserDashboardPage() {
   return (
@@ -10,7 +11,7 @@ export default function UserDashboardPage() {
         </div>
       }
     >
-      <DashboardClient />
+      <WithdrawRecordsClient />
     </Suspense>
   );
 }
