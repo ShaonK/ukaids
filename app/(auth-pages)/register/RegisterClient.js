@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import registerAction from "./action";
 
 export default function RegisterClient() {
@@ -73,7 +74,9 @@ export default function RegisterClient() {
     }
 
     const inputClass =
-        "w-full p-3 rounded-lg bg-white text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500";
+        "w-full p-3 rounded-lg bg-white text-black focus:outline-none focus:ring-2 focus:ring-orange-500";
+
+    const labelClass = "text-sm text-gray-300 mb-1 font-medium";
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-black via-[#0f2027] to-[#2c5364] flex items-center justify-center px-4">
@@ -85,123 +88,144 @@ export default function RegisterClient() {
                     Create Account
                 </h1>
 
-                <input
-                    name="fullname"
-                    value={form.fullname}
-                    placeholder="Full Name"
-                    onChange={handleChange}
-                    className={inputClass}
-                />
+                {/* Full Name */}
+                <div>
+                    <label className={labelClass}>Full Name</label>
+                    <input
+                        name="fullname"
+                        value={form.fullname}
+                        onChange={handleChange}
+                        className={inputClass}
+                    />
+                </div>
 
-                <input
-                    name="username"
-                    value={form.username}
-                    placeholder="Username"
-                    onChange={handleChange}
-                    className={inputClass}
-                />
+                {/* Username */}
+                <div>
+                    <label className={labelClass}>Username</label>
+                    <input
+                        name="username"
+                        value={form.username}
+                        onChange={handleChange}
+                        className={inputClass}
+                    />
+                </div>
 
                 {/* Referral */}
-                <input
-                    name="referral"
-                    value={form.referral}
-                    onChange={handleChange}
-                    readOnly={!!refFromUrl}
-                    placeholder="Referred By (optional)"
-                    className={`w-full p-3 rounded-lg ${refFromUrl
-                            ? "bg-gray-300 text-black cursor-not-allowed"
-                            : "bg-white text-black"
-                        }`}
-                />
-
-
-                {/* Country + Mobile */}
-                <div className="flex gap-2">
-                    <select
-                        name="countryCode"
-                        value={form.countryCode}
-                        onChange={handleChange}
-                        className="p-3 rounded-lg bg-white text-black"
-                    >
-                        <option value="+880">🇧🇩 +880</option>
-                        <option value="+91">🇮🇳 +91</option>
-                        <option value="+92">🇵🇰 +92</option>
-                    </select>
-
+                <div>
+                    <label className={labelClass}>Referral Code (optional)</label>
                     <input
-                        name="mobile"
-                        value={form.mobile}
-                        placeholder="Mobile Number"
+                        name="referral"
+                        value={form.referral}
+                        onChange={handleChange}
+                        readOnly={!!refFromUrl}
+                        className={`w-full p-3 rounded-lg ${refFromUrl
+                                ? "bg-gray-300 text-black cursor-not-allowed"
+                                : "bg-white text-black"
+                            }`}
+                    />
+                </div>
+
+                {/* Mobile */}
+                <div>
+                    <label className={labelClass}>Mobile Number</label>
+                    <div className="flex gap-2">
+                        <select
+                            name="countryCode"
+                            value={form.countryCode}
+                            onChange={handleChange}
+                            className="p-3 rounded-lg bg-white text-black"
+                        >
+                            <option value="+880">🇧🇩 +880</option>
+                            <option value="+91">🇮🇳 +91</option>
+                            <option value="+92">🇵🇰 +92</option>
+                        </select>
+
+                        <input
+                            name="mobile"
+                            value={form.mobile}
+                            onChange={handleChange}
+                            className={inputClass}
+                        />
+                    </div>
+                </div>
+
+                {/* Email */}
+                <div>
+                    <label className={labelClass}>Email (optional)</label>
+                    <input
+                        name="email"
+                        value={form.email}
                         onChange={handleChange}
                         className={inputClass}
                     />
                 </div>
-
-                <input
-                    name="email"
-                    value={form.email}
-                    placeholder="Email (optional)"
-                    onChange={handleChange}
-                    className={inputClass}
-                />
 
                 {/* Password */}
-                <div className="relative">
-                    <input
-                        type={showPass ? "text" : "password"}
-                        name="password"
-                        value={form.password}
-                        placeholder="Password"
-                        onChange={handleChange}
-                        className={inputClass}
-                    />
-                    <span
-                        onClick={() => setShowPass(!showPass)}
-                        className="absolute right-3 top-3 cursor-pointer text-sm text-gray-600"
-                    >
-                        {showPass ? "Hide" : "Show"}
-                    </span>
+                <div>
+                    <label className={labelClass}>Password</label>
+                    <div className="relative">
+                        <input
+                            type={showPass ? "text" : "password"}
+                            name="password"
+                            value={form.password}
+                            onChange={handleChange}
+                            className={inputClass}
+                        />
+                        <span
+                            onClick={() => setShowPass(!showPass)}
+                            className="absolute right-3 top-3 cursor-pointer text-sm text-gray-600"
+                        >
+                            {showPass ? "Hide" : "Show"}
+                        </span>
+                    </div>
                 </div>
 
-                <input
-                    type="password"
-                    name="cpassword"
-                    value={form.cpassword}
-                    placeholder="Confirm Password"
-                    onChange={handleChange}
-                    className={inputClass}
-                />
-
-                {/* Transaction Password */}
-                <div className="relative">
+                {/* Confirm Password */}
+                <div>
+                    <label className={labelClass}>Confirm Password</label>
                     <input
-                        type={showTPass ? "text" : "password"}
-                        name="tpassword"
-                        value={form.tpassword}
-                        placeholder="Transaction Password"
+                        type="password"
+                        name="cpassword"
+                        value={form.cpassword}
                         onChange={handleChange}
                         className={inputClass}
                     />
-                    <span
-                        onClick={() => setShowTPass(!showTPass)}
-                        className="absolute right-3 top-3 cursor-pointer text-sm text-gray-600"
-                    >
-                        {showTPass ? "Hide" : "Show"}
-                    </span>
+                </div>
+
+                {/* Transaction Password */}
+                <div>
+                    <label className={labelClass}>Transaction Password</label>
+                    <div className="relative">
+                        <input
+                            type={showTPass ? "text" : "password"}
+                            name="tpassword"
+                            value={form.tpassword}
+                            onChange={handleChange}
+                            className={inputClass}
+                        />
+                        <span
+                            onClick={() => setShowTPass(!showTPass)}
+                            className="absolute right-3 top-3 cursor-pointer text-sm text-gray-600"
+                        >
+                            {showTPass ? "Hide" : "Show"}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Captcha */}
-                <div className="flex items-center gap-3">
-                    <div className="bg-gray-200 text-black px-4 py-2 rounded font-semibold">
-                        {captcha.a} + {captcha.b} = ?
+                <div>
+                    <label className={labelClass}>Captcha</label>
+                    <div className="flex items-center gap-3">
+                        <div className="bg-gray-200 text-black px-4 py-2 rounded font-semibold">
+                            {captcha.a} + {captcha.b} = ?
+                        </div>
+                        <input
+                            name="captchaAnswer"
+                            value={form.captchaAnswer}
+                            onChange={handleChange}
+                            className="flex-1 p-3 rounded-lg bg-white text-black"
+                        />
                     </div>
-                    <input
-                        name="captchaAnswer"
-                        value={form.captchaAnswer}
-                        placeholder="Answer"
-                        onChange={handleChange}
-                        className="flex-1 p-3 rounded-lg bg-white text-black"
-                    />
                 </div>
 
                 {message && (
@@ -217,6 +241,17 @@ export default function RegisterClient() {
                 >
                     {loading ? "Creating Account..." : "Register"}
                 </button>
+
+                {/* 🔗 LOGIN LINK */}
+                <p className="text-center text-sm text-gray-400 pt-2">
+                    Already have an account?{" "}
+                    <Link
+                        href="/login"
+                        className="text-[#EC7B03] hover:underline font-semibold"
+                    >
+                        Login
+                    </Link>
+                </p>
             </form>
         </div>
     );
