@@ -9,8 +9,9 @@ export default function PackagesPageClient() {
 
   const [packages, setPackages] = useState([]);
   const [activePackage, setActivePackage] = useState(null);
-  const [wallet, setWallet] = useState(null);
+  const [wallet, setWallet] = useState({ mainWallet: 0 });
   const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
 
   // ---------------------------
   // LOAD DATA
@@ -30,7 +31,13 @@ export default function PackagesPageClient() {
 
         setPackages(Array.isArray(pkgData) ? pkgData : []);
         setActivePackage(activeData);
-        setWallet(walletData?.wallet ?? walletData);
+
+        // ✅ NORMALIZE WALLET
+        const w = walletData?.wallet ?? walletData ?? {};
+        setWallet({
+          mainWallet: Number(w.mainWallet) || 0,
+        });
+
       } catch (e) {
         console.error("FAILED TO LOAD PACKAGES:", e);
       } finally {
@@ -45,17 +52,25 @@ export default function PackagesPageClient() {
   // BUY PACKAGE
   // ---------------------------
   const buyPackage = async (packageId) => {
-    if (!packageId) return alert("Package ID missing");
-
-    const pkg = packages.find((p) => p.id === packageId);
-    if (!pkg) return alert("Package not found");
-
-    if (!wallet || wallet.mainWallet < pkg.amount) {
-      router.push("/user/mine/recharge");
-      return;
-    }
+    if (processing) return;
+    setProcessing(true);
 
     try {
+      const pkg = packages.find((p) => p.id === packageId);
+      if (!pkg) {
+        alert("Package not found");
+        return;
+      }
+
+      const price = Number(pkg.amount) || 0;
+      const balance = Number(wallet.mainWallet) || 0;
+
+      // ✅ ONLY BALANCE CHECK (FIRST PACKAGE SAFE)
+      if (balance < price) {
+        router.push("/user/mine/recharge");
+        return;
+      }
+
       const res = await fetch("/api/user/package/deposit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,13 +78,19 @@ export default function PackagesPageClient() {
       });
 
       const data = await res.json();
-      if (!res.ok) return alert(data?.error || "Package purchase failed");
+      if (!res.ok) {
+        alert(data?.error || "Package purchase failed");
+        return;
+      }
 
       alert("✅ Package activated successfully!");
       router.push("/user");
+
     } catch (err) {
       console.error(err);
       alert("Server error");
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -77,17 +98,24 @@ export default function PackagesPageClient() {
   // UPGRADE PACKAGE
   // ---------------------------
   const upgradePackage = async (packageId) => {
-    if (!packageId) return alert("Package ID missing");
-
-    const pkg = packages.find((p) => p.id === packageId);
-    if (!pkg) return alert("Package not found");
-
-    if (!wallet || wallet.mainWallet < pkg.amount) {
-      router.push("/user/mine/recharge");
-      return;
-    }
+    if (processing) return;
+    setProcessing(true);
 
     try {
+      const pkg = packages.find((p) => p.id === packageId);
+      if (!pkg) {
+        alert("Package not found");
+        return;
+      }
+
+      const price = Number(pkg.amount) || 0;
+      const balance = Number(wallet.mainWallet) || 0;
+
+      if (balance < price) {
+        router.push("/user/mine/recharge");
+        return;
+      }
+
       const res = await fetch("/api/user/package/upgrade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -95,13 +123,19 @@ export default function PackagesPageClient() {
       });
 
       const data = await res.json();
-      if (!res.ok) return alert(data?.error || "Upgrade failed");
+      if (!res.ok) {
+        alert(data?.error || "Upgrade failed");
+        return;
+      }
 
       alert("🚀 Package upgraded successfully!");
       router.push("/user");
+
     } catch (err) {
       console.error(err);
       alert("Server error");
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -134,6 +168,7 @@ export default function PackagesPageClient() {
             activePackage={activePackage}
             onBuy={buyPackage}
             onUpgrade={upgradePackage}
+            disabled={processing}
           />
         ))}
       </div>

@@ -23,6 +23,9 @@ export async function POST(req) {
 
     const userId = user.id;
 
+    // -------------------------
+    // 1️⃣ FETCH PACKAGE (NO TX)
+    // -------------------------
     const pkg = await prisma.package.findUnique({
       where: { id: Number(packageId) },
     });
@@ -33,28 +36,43 @@ export async function POST(req) {
 
     const amount = Number(pkg.amount);
 
+    // -------------------------
+    // 2️⃣ CHECK WALLET (NO TX)
+    // -------------------------
+    const wallet = await prisma.wallet.findUnique({
+      where: { userId },
+    });
+
+    if (!wallet || Number(wallet.mainWallet) < amount) {
+      return Response.json(
+        { error: "Insufficient balance" },
+        { status: 400 }
+      );
+    }
+
+    // -------------------------
+    // 3️⃣ CHECK ACTIVE PACKAGE
+    // -------------------------
+    const activePkg = await prisma.userPackage.findFirst({
+      where: { userId, isActive: true },
+    });
+
+    if (activePkg) {
+      return Response.json(
+        { error: "Active package exists. Upgrade required." },
+        { status: 400 }
+      );
+    }
+
+    const initialRoi = Number(
+      (amount * INITIAL_ROI_PERCENT).toFixed(6)
+    );
+
+    // -------------------------
+    // 4️⃣ FAST TRANSACTION (ONLY WRITES)
+    // -------------------------
     await prisma.$transaction(async (tx) => {
       await ensureUserActive(tx, userId);
-
-      const wallet = await tx.wallet.findUnique({
-        where: { userId },
-      });
-
-      if (!wallet || Number(wallet.mainWallet) < amount) {
-        throw new Error("Insufficient balance");
-      }
-
-      const activePkg = await tx.userPackage.findFirst({
-        where: { userId, isActive: true },
-      });
-
-      if (activePkg) {
-        throw new Error("Active package exists. Upgrade required.");
-      }
-
-      const initialRoi = Number(
-        (amount * INITIAL_ROI_PERCENT).toFixed(6)
-      );
 
       await debitWallet({
         tx,
@@ -103,19 +121,22 @@ export async function POST(req) {
           earningId: null,
         },
       });
+    });
 
-      await distributeReferralCommission({
-        tx,
-        buyerId: userId,
-        packageAmount: amount,
-        source: "PACKAGE_BUY",
-      });
+    // -------------------------
+    // 5️⃣ REFERRAL COMMISSION (OUTSIDE TX ✅)
+    // -------------------------
+    await distributeReferralCommission({
+      buyerId: userId,
+      packageAmount: amount,
+      source: "PACKAGE_BUY",
     });
 
     return Response.json({
       success: true,
       message: "Package activated successfully",
     });
+
   } catch (err) {
     console.error("PACKAGE DEPOSIT ERROR:", err);
     return Response.json(

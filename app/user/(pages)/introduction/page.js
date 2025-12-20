@@ -11,7 +11,7 @@ export const metadata = {
 export default function IntroductionPage() {
   const tableData = {
     header: [
-      "BBH",
+      "ukaids",
       "Deposit",
       "Number of working days",
       "Mission income",
@@ -53,7 +53,7 @@ export default function IntroductionPage() {
       {
         title: "CORPORATE PARTNER",
         rows: [
-          ["BBH", "5520000", "400", "600", "240000", "7200000", "86400000"],
+          ["ukaids", "5520000", "400", "600", "240000", "7200000", "86400000"],
         ],
       },
     ],
@@ -268,7 +268,7 @@ export default function IntroductionPage() {
       cReward: "1125",
     },
     {
-      level: "BBH",
+      level: "ukaids",
       taskPercent: "3%→2%→1%",
       aReward: "7200",
       bReward: "4800",

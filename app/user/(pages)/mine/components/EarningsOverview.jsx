@@ -1,72 +1,182 @@
 "use client";
 
-export default function EarningsOverview() {
-  const row1 = [
-    { title: "Today's Earnings", value: "10$" },
-    { title: "Yesterday's Earnings", value: "25$" },
-    { title: "Recommended Income", value: "10$" },
-  ];
+import { useEffect, useState } from "react";
 
-  const row2 = [
-    { title: "Earnings This WEEK", value: "10$" },
-    { title: "Earnings This Month", value: "25$" },
-    { title: "Task Commission from the team", value: "10$" },
-  ];
-
-  const row3 = [
-    { title: "Job Security Deposit", value: "25$" },
-    { title: "Total Revenue", value: "25$" },
-  ];
-
-  const Card = ({ title, value }) => (
+function StatCard({ title, value, highlight = false }) {
+  return (
     <div
-      className="
-        rounded-lg p-[1px]
-        bg-[linear-gradient(180deg,#3B82F6,#EC7B03)]
-        overflow-hidden
-      "
+      className={`
+        rounded-xl p-[1px]
+        ${highlight
+          ? "bg-gradient-to-br from-orange-500 to-yellow-400"
+          : "bg-gradient-to-br from-[#2d2d2d] to-[#1a1a1a]"}
+      `}
     >
       <div
         className="
-          bg-[#121212]
-          h-[90px]
-          flex flex-col items-center justify-center
-          rounded-lg px-2 py-2
-          text-center
+          bg-[#121212]/95
+          rounded-xl
+          px-3 py-3
+          h-[76px]
+          flex flex-col justify-center
         "
       >
-        <p className="text-[12px] font-semibold text-[#E07503] leading-snug text-center">
+        <p className="text-[11px] text-gray-400 leading-tight">
           {title}
         </p>
-        <p className="text-[18px] mt-1 font-bold text-white">{value}</p>
+
+        <p
+          className={`
+            mt-1 text-[17px] font-bold tracking-wide
+            ${highlight ? "text-orange-400" : "text-white"}
+          `}
+        >
+          {value}
+        </p>
       </div>
     </div>
   );
+}
+
+export default function EarningsOverview() {
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    today: 0,
+    yesterday: 0,
+    week: 0,
+    month: 0,
+    referralToday: 0,
+    levelMonth: 0,
+    deposit: 0,
+    total: 0,
+  });
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadData() {
+      try {
+        const [
+          walletRes,
+          roiRes,
+          levelRes,
+          referralRes,
+        ] = await Promise.all([
+          fetch("/api/user/wallet", { cache: "no-store" }),
+          fetch("/api/user/history/roi?limit=1000"),
+          fetch("/api/user/history/level?limit=1000"),
+          fetch("/api/user/history/referral?limit=1000"),
+        ]);
+
+        const walletData = await walletRes.json();
+        const roiData = await roiRes.json();
+        const levelData = await levelRes.json();
+        const referralData = await referralRes.json();
+
+        if (!mounted) return;
+
+        const now = new Date();
+        const today = new Date(now.setHours(0, 0, 0, 0));
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        const week = new Date();
+        week.setDate(week.getDate() - week.getDay());
+        week.setHours(0, 0, 0, 0);
+
+        const month = new Date(
+          new Date().getFullYear(),
+          new Date().getMonth(),
+          1
+        );
+
+        const sum = (rows, from, to = null) =>
+          rows
+            .filter(r => {
+              const d = new Date(r.createdAt);
+              return d >= from && (!to || d < to);
+            })
+            .reduce((s, r) => s + Number(r.amount), 0);
+
+        const roi = roiData.history || [];
+        const level = levelData.history || [];
+        const referral = referralData.history || [];
+
+        setStats({
+          today: sum(roi, today) + sum(level, today) + sum(referral, today),
+          yesterday:
+            sum(roi, yesterday, today) +
+            sum(level, yesterday, today) +
+            sum(referral, yesterday, today),
+          week: sum(roi, week) + sum(level, week) + sum(referral, week),
+          month: sum(roi, month) + sum(level, month) + sum(referral, month),
+          referralToday: sum(referral, today),
+          levelMonth: sum(level, month),
+          deposit: Number(walletData.wallet?.depositWallet || 0),
+          total:
+            roi.reduce((s, r) => s + Number(r.amount), 0) +
+            level.reduce((s, r) => s + Number(r.amount), 0) +
+            referral.reduce((s, r) => s + Number(r.amount), 0),
+        });
+      } catch (e) {
+        console.error("EARNINGS OVERVIEW ERROR:", e);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadData();
+    return () => (mounted = false);
+  }, []);
+
+  const fmt = (n) => `$${Number(n).toFixed(2)}`;
+
+  if (loading) {
+    return (
+      <div className="mt-6 text-center text-gray-500 text-sm">
+        Loading earnings overview…
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full mt-6 space-y-4">
+    <div className="mt-6 space-y-5">
 
-      {/* Row 1: 3 cards */}
-      <div className="grid grid-cols-3 gap-3 w-full">
-        {row1.map((item, i) => (
-          <Card key={i} title={item.title} value={item.value} />
-        ))}
+      {/* 🔥 Highlight row */}
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard
+          title="Today's Earnings"
+          value={fmt(stats.today)}
+          highlight
+        />
+        <StatCard
+          title="Total Revenue"
+          value={fmt(stats.total)}
+          highlight
+        />
       </div>
 
-      {/* Row 2: 3 cards */}
-      <div className="grid grid-cols-3 gap-3 w-full">
-        {row2.map((item, i) => (
-          <Card key={i} title={item.title} value={item.value} />
-        ))}
+      {/* Regular stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard title="Yesterday" value={fmt(stats.yesterday)} />
+        <StatCard title="This Week" value={fmt(stats.week)} />
+        <StatCard title="This Month" value={fmt(stats.month)} />
       </div>
 
-      {/* Row 3: 2 cards centered */}
-      <div className="grid grid-cols-2 gap-3 w-full">
-        {row3.map((item, i) => (
-          <Card key={i} title={item.title} value={item.value} />
-        ))}
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard
+          title="Referral Income (Today)"
+          value={fmt(stats.referralToday)}
+        />
+        <StatCard
+          title="Team Task Income"
+          value={fmt(stats.levelMonth)}
+        />
+        <StatCard
+          title="Security Deposit"
+          value={fmt(stats.deposit)}
+        />
       </div>
-
     </div>
   );
 }

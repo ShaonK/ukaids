@@ -1,192 +1,158 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+const TABS = [
+  { key: "account", label: "Account" },
+  { key: "deposit", label: "Deposit" },
+  { key: "roi", label: "ROI" },
+  { key: "level", label: "Level" },
+  { key: "referral", label: "Referral" },
+];
+
+function normalize(row) {
+  return {
+    amount: Number(row.amount) || 0,
+    type: row.type || "Unknown",
+    from: row.from || "-",
+    createdAt: new Date(row.createdAt),
+  };
+}
 
 export default function WalletHistoryClient() {
-  const router = useRouter();
-
-  const [activeTab, setActiveTab] = useState("account");
-  const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState("account");
   const [rows, setRows] = useState([]);
-
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(false);
 
-  const apiMap = {
-    account: "/api/user/history/account",
-    deposit: "/api/user/history/deposit",
-    roi: "/api/user/history/roi",
-    level: "/api/user/history/level",
-    referral: "/api/user/history/referral",
-  };
-
-  async function loadHistory(tab) {
+  async function load() {
     setLoading(true);
-
-    let url = `${apiMap[tab]}?page=${page}&limit=10`;
-
-    const today = new Date();
-    let from = null;
-    let to = today.toISOString().slice(0, 10);
-
-    if (filter === "today") from = to;
-    if (filter === "week") {
-      const d = new Date();
-      d.setDate(d.getDate() - 7);
-      from = d.toISOString().slice(0, 10);
-    }
-    if (filter === "month") {
-      const d = new Date();
-      d.setDate(d.getDate() - 30);
-      from = d.toISOString().slice(0, 10);
-    }
-
-    if (from) url += `&from=${from}&to=${to}`;
-
     try {
-      const res = await fetch(url);
-      const data = await res.json();
-      setRows(data?.history || []);
-      setTotalPages(data?.totalPages || 1);
-    } catch (err) {
-      console.error("History load error", err);
-    }
+      const res = await fetch(
+        `/api/user/history/${tab}?page=${page}&limit=10`,
+        { cache: "no-store" }
+      );
 
-    setLoading(false);
+      const data = await res.json();
+
+      const history = Array.isArray(data.history)
+        ? data.history.map(normalize)
+        : [];
+
+      setRows(history);
+      setTotalPages(data.totalPages || 1);
+    } catch (err) {
+      console.error("WALLET HISTORY ERROR:", err);
+      setRows([]);
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     setPage(1);
-    loadHistory(activeTab);
-  }, [activeTab, filter]);
+  }, [tab]);
 
   useEffect(() => {
-    loadHistory(activeTab);
-  }, [page]);
-
-  const TabButton = ({ id, label }) => {
-    const active = activeTab === id;
-    return (
-      <button
-        onClick={() => setActiveTab(id)}
-        className={`flex-1 py-2 mx-1 rounded-lg font-semibold transition ${
-          active
-            ? "bg-gradient-to-r from-orange-500 to-yellow-400 text-black"
-            : "bg-[#1A1A1A] text-gray-300"
-        }`}
-      >
-        {label}
-      </button>
-    );
-  };
+    load();
+  }, [tab, page]);
 
   return (
     <div className="p-4 text-white">
-      <h2 className="text-xl font-bold mb-3 text-center">Wallet History</h2>
+      <h2 className="text-xl font-bold mb-4 text-center">
+        Wallet History
+      </h2>
 
-      <button
-        onClick={() => router.push("/user/transfer/history")}
-        className="mb-4 w-full py-2 rounded-lg bg-[#1A1A1A] border border-gray-700 text-sm text-yellow-400 hover:bg-[#222]"
-      >
-        🔁 View Transfer History
-      </button>
-
-      <div className="flex mb-4">
-        <TabButton id="account" label="Account Balance" />
-        <TabButton id="deposit" label="Deposit" />
-        <TabButton id="roi" label="ROI" />
-        <TabButton id="level" label="Level" />
-        <TabButton id="referral" label="Referral" />
-      </div>
-
-      <div className="flex justify-between mb-4 text-sm">
-        {["today", "week", "month", "all"].map((f) => (
+      {/* TABS */}
+      <div className="flex gap-2 mb-4 overflow-x-auto">
+        {TABS.map((t) => (
           <button
-            key={f}
-            onClick={() => {
-              setPage(1);
-              setFilter(f);
-            }}
-            className={`px-3 py-1 rounded-md ${
-              filter === f
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-4 py-2 rounded text-sm whitespace-nowrap ${
+              tab === t.key
                 ? "bg-yellow-500 text-black"
                 : "bg-[#1A1A1A] text-gray-300"
             }`}
           >
-            {f === "today"
-              ? "Today"
-              : f === "week"
-              ? "7 Days"
-              : f === "month"
-              ? "30 Days"
-              : "All"}
+            {t.label}
           </button>
         ))}
       </div>
 
-      {loading && (
-        <p className="text-center text-gray-400 py-6">Loading...</p>
-      )}
-
-      {!loading && rows.length === 0 && (
-        <p className="text-center text-gray-400 mt-6">No records found</p>
-      )}
-
-      <div className="space-y-3">
-        {rows.map((item, i) => (
-          <div
-            key={i}
-            className="bg-[#1A1A1A] p-3 rounded-lg flex justify-between items-center border border-gray-800"
-          >
-            <div>
-              <p
-                className={`text-sm font-semibold ${
-                  item.amount < 0 ? "text-red-400" : "text-green-400"
-                }`}
-              >
-                {item.amount > 0 ? "+" : ""}
-                {item.amount} USD
-              </p>
-              <p className="text-xs text-gray-400">
-                {item.type} •{" "}
-                {new Date(item.createdAt).toLocaleDateString()}
-              </p>
-            </div>
-
-            {item.from && (
-              <span className="text-xs text-gray-300">
-                {item.from}
-              </span>
-            )}
-          </div>
-        ))}
+      {/* TABLE */}
+      <div className="bg-[#1A1A1A] rounded-lg overflow-hidden">
+        {loading ? (
+          <p className="text-center text-gray-400 py-6">
+            Loading...
+          </p>
+        ) : rows.length === 0 ? (
+          <p className="text-center text-gray-400 py-6">
+            No history found.
+          </p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-black/40">
+              <tr>
+                <th className="p-2 text-left">Type</th>
+                <th className="p-2 text-left">From</th>
+                <th className="p-2 text-right">Amount</th>
+                <th className="p-2 text-right">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr
+                  key={i}
+                  className="border-t border-gray-800"
+                >
+                  <td className="p-2">{r.type}</td>
+                  <td className="p-2 text-gray-400">
+                    {r.from}
+                  </td>
+                  <td
+                    className={`p-2 text-right ${
+                      r.amount >= 0
+                        ? "text-green-400"
+                        : "text-red-400"
+                    }`}
+                  >
+                    {r.amount.toFixed(2)}
+                  </td>
+                  <td className="p-2 text-right text-gray-400">
+                    {r.createdAt.toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      {!loading && (
-        <div className="flex justify-between items-center mt-4">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="px-4 py-2 bg-[#1A1A1A] rounded disabled:opacity-40"
-          >
-            Prev
-          </button>
+      {/* PAGINATION */}
+      <div className="flex justify-between items-center mt-4">
+        <button
+          disabled={page <= 1}
+          onClick={() => setPage((p) => p - 1)}
+          className="px-3 py-1 bg-[#1A1A1A] rounded disabled:opacity-50"
+        >
+          Prev
+        </button>
 
-          <span className="text-gray-400 text-sm">
-            Page {page} / {totalPages}
-          </span>
+        <span className="text-sm text-gray-400">
+          Page {page} / {totalPages}
+        </span>
 
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            className="px-4 py-2 bg-[#1A1A1A] rounded disabled:opacity-40"
-          >
-            Next
-          </button>
-        </div>
-      )}
+        <button
+          disabled={page >= totalPages}
+          onClick={() => setPage((p) => p + 1)}
+          className="px-3 py-1 bg-[#1A1A1A] rounded disabled:opacity-50"
+        >
+          Next
+        </button>
+      </div>
     </div>
   );
 }

@@ -35,8 +35,11 @@ export async function POST() {
 
     const roiAmount = Number((activePkg.amount * 0.02).toFixed(6));
 
+    // -------------------------
+    // 1️⃣ FAST TRANSACTION (NO MLM / LOOP)
+    // -------------------------
     await prisma.$transaction(async (tx) => {
-      // 1️⃣ ROI wallet
+      // ROI wallet credit
       await creditWallet({
         tx,
         userId,
@@ -46,7 +49,7 @@ export async function POST() {
         note: "Task completed ROI",
       });
 
-      // 2️⃣ ROI history
+      // ROI history
       await tx.roiHistory.create({
         data: {
           userId,
@@ -55,7 +58,7 @@ export async function POST() {
         },
       });
 
-      // 3️⃣ update package
+      // Update package
       await tx.userPackage.update({
         where: { id: activePkg.id },
         data: {
@@ -63,13 +66,14 @@ export async function POST() {
           totalEarned: { increment: roiAmount },
         },
       });
+    });
 
-      // 🔥 4️⃣ LEVEL INCOME DISTRIBUTION
-      await distributeLevelIncome({
-        tx,
-        buyerId: userId,
-        roiAmount,
-      });
+    // -------------------------
+    // 2️⃣ LEVEL INCOME (OUTSIDE TX ✅)
+    // -------------------------
+    await distributeLevelIncome({
+      buyerId: userId,
+      roiAmount,
     });
 
     return Response.json({
@@ -79,6 +83,6 @@ export async function POST() {
 
   } catch (err) {
     console.error("❌ TASK COMPLETE ERROR:", err);
-    return Response.json({ error: "Server error" }, { status: 500 });
+    return Response.json({ error: err.message || "Server error" }, { status: 500 });
   }
 }

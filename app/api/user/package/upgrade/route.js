@@ -21,6 +21,9 @@ export async function POST(req) {
 
     const userId = user.id;
 
+    // -------------------------
+    // 1️⃣ FETCH PACKAGE (NO TX)
+    // -------------------------
     const newPackage = await prisma.package.findUnique({
       where: { id: Number(packageId) },
     });
@@ -34,21 +37,31 @@ export async function POST(req) {
 
     const upgradeAmount = Number(newPackage.amount);
 
+    // -------------------------
+    // 2️⃣ CHECK WALLET (NO TX)
+    // -------------------------
+    const wallet = await prisma.wallet.findUnique({
+      where: { userId },
+    });
+
+    if (!wallet || Number(wallet.mainWallet) < upgradeAmount) {
+      return NextResponse.json(
+        { error: "Insufficient balance" },
+        { status: 400 }
+      );
+    }
+
+    // -------------------------
+    // 3️⃣ FAST TRANSACTION
+    // -------------------------
     await prisma.$transaction(async (tx) => {
       await ensureUserActive(tx, userId);
-
-      const wallet = await tx.wallet.findUnique({
-        where: { userId },
-      });
-
-      if (!wallet || Number(wallet.mainWallet) < upgradeAmount) {
-        throw new Error("Insufficient balance");
-      }
 
       const activePkg = await tx.userPackage.findFirst({
         where: { userId, isActive: true },
       });
 
+      // 🔁 deactivate previous package (if any)
       if (activePkg) {
         await tx.wallet.update({
           where: { userId },
@@ -68,16 +81,20 @@ export async function POST(req) {
         });
       }
 
+      // 💰 debit & deposit
       await tx.wallet.update({
         where: { userId },
         data: {
           mainWallet: {
             decrement: upgradeAmount,
           },
-          depositWallet: upgradeAmount,
+          depositWallet: {
+            increment: upgradeAmount,
+          },
         },
       });
 
+      // 📦 create new package
       await tx.userPackage.create({
         data: {
           userId,
@@ -90,16 +107,19 @@ export async function POST(req) {
           startedAt: new Date(),
         },
       });
+    });
 
-      await distributeReferralCommission({
-        tx,
-        buyerId: userId,
-        packageAmount: upgradeAmount,
-        source: "PACKAGE_UPGRADE",
-      });
+    // -------------------------
+    // 4️⃣ REFERRAL COMMISSION (OUTSIDE TX ✅)
+    // -------------------------
+    await distributeReferralCommission({
+      buyerId: userId,
+      packageAmount: upgradeAmount,
+      source: "PACKAGE_UPGRADE",
     });
 
     return NextResponse.json({ success: true });
+
   } catch (err) {
     console.error("PACKAGE UPGRADE ERROR:", err);
     return NextResponse.json(
