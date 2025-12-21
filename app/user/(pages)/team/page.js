@@ -1,38 +1,35 @@
-"use client";
+export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { getUser } from "@/lib/getUser";
+import { getTeamData } from "@/lib/teamService";
+
 import TeamSummary from "./components/TeamSummary";
 import GenerationTabs from "./components/GenerationTabs";
-import GenerationUserList from "./components/GenerationUserList";
 import InactiveTeamList from "./components/InactiveTeamList";
 import TeamIncomeGuide from "./components/TeamIncomeGuide";
 
-export default function TeamPage() {
-  const [team, setTeam] = useState([]);
-  const [totalTeam, setTotalTeam] = useState(0);
-  const [generation, setGeneration] = useState(1);
+export default async function TeamPage() {
+  const user = await getUser(); // uses cookies → OK now
+  if (!user) return null;
 
-  useEffect(() => {
-    fetch("/api/user/team")
-      .then((res) => res.json())
-      .then((data) => {
-        setTeam(data.team || []);
-        setTotalTeam(data.totalTeamCount || 0);
-      });
-  }, []);
+  const { team, generations, totalTeamCount } =
+    await getTeamData(user.id);
 
-  const genUsers = team.filter((u) => u.generation === generation);
-  const inactive = team.filter((u) => !u.isActive);
+  const generationCounts = {
+    1: generations[1].length,
+    2: generations[2].length,
+    3: generations[3].length,
+    4: generations[4].length,
+    5: generations[5].length,
+  };
 
   return (
     <div className="w-full px-4 pb-24 text-white">
-      <TeamSummary data={team} totalTeam={totalTeam} />
+      <TeamSummary data={team} totalTeam={totalTeamCount} />
 
-      <GenerationTabs active={generation} onChange={setGeneration} />
+      <GenerationTabs team={team} counts={generationCounts} />
 
-      <GenerationUserList users={genUsers} generation={generation} />
-
-      <InactiveTeamList users={inactive} />
+      <InactiveTeamList users={team.filter((u) => !u.isActive)} />
 
       <TeamIncomeGuide />
     </div>
