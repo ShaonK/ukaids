@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -12,7 +13,11 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
+  Package2, // ✅ USE THIS (NOT Package)
 } from "lucide-react";
+
+
 
 export default function AdminSidebar() {
   const path = usePathname();
@@ -21,7 +26,11 @@ export default function AdminSidebar() {
 
   useEffect(() => {
     function handleClick(e) {
-      if (!collapsed && sidebarRef.current && !sidebarRef.current.contains(e.target)) {
+      if (
+        !collapsed &&
+        sidebarRef.current &&
+        !sidebarRef.current.contains(e.target)
+      ) {
         setCollapsed(true);
       }
     }
@@ -33,6 +42,9 @@ export default function AdminSidebar() {
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/users", label: "Users", icon: Users },
 
+    // 🔥 PACKAGE CONTROL
+    { href: "/admin/packages", label: "Packages", icon: Package2 },
+    { href: "/admin/audit-logs", label: "Audit Logs", icon: ClipboardList },
     { href: "/admin/deposits", label: "Deposits (Pending)", icon: Wallet },
     { href: "/admin/deposits/approved", label: "Approved Deposits", icon: CheckCircle },
     { href: "/admin/deposits/rejected", label: "Rejected Deposits", icon: XCircle },
@@ -60,9 +72,8 @@ export default function AdminSidebar() {
 
       <aside
         ref={sidebarRef}
-        className={`absolute left-0 top-0 h-full z-50 bg-[var(--sidebar-bg)] shadow-xl transition-all duration-500 ${
-          collapsed ? "w-0 opacity-0" : "w-[230px] opacity-100"
-        }`}
+        className={`absolute left-0 top-0 h-full z-50 bg-[var(--sidebar-bg)] shadow-xl transition-all duration-500 ${collapsed ? "w-0 opacity-0" : "w-[230px] opacity-100"
+          }`}
       >
         {!collapsed && (
           <button
@@ -74,19 +85,24 @@ export default function AdminSidebar() {
         )}
 
         {!collapsed && (
-          <nav className="mt-14 px-5">
+          <nav className="mt-14 px-5 space-y-1">
             {links.map((item) => {
               const Icon = item.icon;
-              const active = path === item.href;
+              const active =
+                path === item.href || path.startsWith(item.href + "/");
 
               return (
                 <Link
                   key={`${item.href}-${item.label}`}
                   href={item.href}
-                  className="flex items-center gap-4 py-2 rounded-lg"
+                  className="flex items-center gap-4 py-2 px-2 rounded-lg transition-colors"
                   style={{
-                    color: active ? "var(--menu-active-text)" : "var(--menu-text)",
-                    background: active ? "var(--menu-active-bg)" : "transparent",
+                    color: active
+                      ? "var(--menu-active-text)"
+                      : "var(--menu-text)",
+                    background: active
+                      ? "var(--menu-active-bg)"
+                      : "transparent",
                   }}
                 >
                   <Icon size={20} />

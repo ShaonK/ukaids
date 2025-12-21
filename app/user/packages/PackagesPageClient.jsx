@@ -166,10 +166,13 @@ export default function PackagesPageClient() {
             pkg={pkg}
             packages={packages}
             activePackage={activePackage}
+            accountBalance={wallet.mainWallet}   // 🔥 IMPORTANT
             onBuy={buyPackage}
             onUpgrade={upgradePackage}
-            disabled={processing}
           />
+
+
+
         ))}
       </div>
     </div>

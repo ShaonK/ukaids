@@ -1,6 +1,6 @@
 import AdminTopBar from "@/app/components/AdminTopBar";
-import AdminSidebar from "@/app/components/AdminSidebar";
 import "@/app/globals.css";
+import AdminSidebar from "../components/AdminSidebar";
 
 export default function AdminLayout({ children }) {
   return (

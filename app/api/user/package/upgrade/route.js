@@ -13,29 +13,26 @@ export async function POST(req) {
 
     const { packageId } = await req.json();
     if (!packageId) {
-      return NextResponse.json(
-        { error: "Package ID missing" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Package ID missing" }, { status: 400 });
     }
 
     const userId = user.id;
 
-    // 1️⃣ Fetch new package
+    // 1️⃣ Fetch target package
     const newPackage = await prisma.package.findUnique({
       where: { id: Number(packageId) },
     });
 
     if (!newPackage || !newPackage.isActive) {
       return NextResponse.json(
-        { error: "Invalid package" },
-        { status: 400 }
+        { error: "Package not active yet" },
+        { status: 403 }
       );
     }
 
     const upgradeAmount = Number(newPackage.amount);
 
-    // 2️⃣ Check main wallet
+    // 2️⃣ Wallet check
     const wallet = await prisma.wallet.findUnique({
       where: { userId },
     });
@@ -55,15 +52,11 @@ export async function POST(req) {
         where: { userId, isActive: true },
       });
 
-      // 🔁 Close previous package
       if (activePkg) {
-        // send old deposit to return wallet
         await tx.wallet.update({
           where: { userId },
           data: {
-            returnWallet: {
-              increment: Number(activePkg.amount),
-            },
+            returnWallet: { increment: Number(activePkg.amount) },
           },
         });
 
@@ -76,14 +69,11 @@ export async function POST(req) {
         });
       }
 
-      // 💰 Apply new package
       await tx.wallet.update({
         where: { userId },
         data: {
-          mainWallet: {
-            decrement: upgradeAmount,
-          },
-          depositWallet: upgradeAmount, // 🔥 only current package
+          mainWallet: { decrement: upgradeAmount },
+          depositWallet: upgradeAmount,
         },
       });
 
@@ -94,14 +84,11 @@ export async function POST(req) {
           amount: upgradeAmount,
           isActive: true,
           source: "self",
-          totalEarned: 0,
-          lastRoiAt: null,
           startedAt: new Date(),
         },
       });
     });
 
-    // 4️⃣ Referral commission (outside tx)
     await distributeReferralCommission({
       buyerId: userId,
       packageAmount: upgradeAmount,
@@ -109,7 +96,6 @@ export async function POST(req) {
     });
 
     return NextResponse.json({ success: true });
-
   } catch (err) {
     console.error("PACKAGE UPGRADE ERROR:", err);
     return NextResponse.json(
