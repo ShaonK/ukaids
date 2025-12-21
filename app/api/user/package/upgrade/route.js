@@ -21,9 +21,7 @@ export async function POST(req) {
 
     const userId = user.id;
 
-    // -------------------------
-    // 1️⃣ FETCH PACKAGE (NO TX)
-    // -------------------------
+    // 1️⃣ Fetch new package
     const newPackage = await prisma.package.findUnique({
       where: { id: Number(packageId) },
     });
@@ -37,9 +35,7 @@ export async function POST(req) {
 
     const upgradeAmount = Number(newPackage.amount);
 
-    // -------------------------
-    // 2️⃣ CHECK WALLET (NO TX)
-    // -------------------------
+    // 2️⃣ Check main wallet
     const wallet = await prisma.wallet.findUnique({
       where: { userId },
     });
@@ -51,9 +47,7 @@ export async function POST(req) {
       );
     }
 
-    // -------------------------
-    // 3️⃣ FAST TRANSACTION
-    // -------------------------
+    // 3️⃣ Transaction
     await prisma.$transaction(async (tx) => {
       await ensureUserActive(tx, userId);
 
@@ -61,8 +55,9 @@ export async function POST(req) {
         where: { userId, isActive: true },
       });
 
-      // 🔁 deactivate previous package (if any)
+      // 🔁 Close previous package
       if (activePkg) {
+        // send old deposit to return wallet
         await tx.wallet.update({
           where: { userId },
           data: {
@@ -81,20 +76,17 @@ export async function POST(req) {
         });
       }
 
-      // 💰 debit & deposit
+      // 💰 Apply new package
       await tx.wallet.update({
         where: { userId },
         data: {
           mainWallet: {
             decrement: upgradeAmount,
           },
-          depositWallet: {
-            increment: upgradeAmount,
-          },
+          depositWallet: upgradeAmount, // 🔥 only current package
         },
       });
 
-      // 📦 create new package
       await tx.userPackage.create({
         data: {
           userId,
@@ -109,9 +101,7 @@ export async function POST(req) {
       });
     });
 
-    // -------------------------
-    // 4️⃣ REFERRAL COMMISSION (OUTSIDE TX ✅)
-    // -------------------------
+    // 4️⃣ Referral commission (outside tx)
     await distributeReferralCommission({
       buyerId: userId,
       packageAmount: upgradeAmount,

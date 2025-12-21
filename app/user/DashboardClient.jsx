@@ -146,11 +146,7 @@ export default function DashboardClient() {
                     title="Level Income"
                     amount={fmt(wallet.levelWallet)}
                 />
-
-                <UserAmountSummaryCard
-                    title="Total Income"
-                    amount={fmt(totalIncome)}
-                />
+               
                 <UserAmountSummaryCard
                     title="Salary Wallet"
                     amount={fmt(wallet.salaryWallet)}
@@ -164,6 +160,10 @@ export default function DashboardClient() {
                 <UserAmountSummaryCard
                     title="Return Wallet"
                     amount={fmt(wallet.returnWallet)}
+                />
+                 <UserAmountSummaryCard
+                    title="Total Income"
+                    amount={fmt(totalIncome)}
                 />
             </div>
 

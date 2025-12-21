@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
+import { debitWallet, creditWallet } from "@/lib/walletService";
 
 export async function POST(req) {
   try {
@@ -19,14 +20,14 @@ export async function POST(req) {
     const { receiver, amount } = await req.json();
     const transferAmount = Number(amount);
 
-    if (!receiver || !transferAmount || transferAmount <= 0) {
+    if (!receiver || transferAmount <= 0) {
       return Response.json(
         { error: "Invalid transfer data" },
         { status: 400 }
       );
     }
 
-    // 🔍 Find receiver (username OR userId)
+    // 🔍 Find receiver
     const receiverUser = await prisma.user.findFirst({
       where: {
         OR: [
@@ -54,31 +55,50 @@ export async function POST(req) {
       );
     }
 
-    /**
-     * 🚨 IMPORTANT CHANGE
-     * No wallet debit / credit here
-     * Only create a PENDING transfer request
-     */
+    // 🔁 INSTANT TRANSFER (NO ADMIN)
+    await prisma.$transaction(async (tx) => {
 
-    await prisma.balanceTransfer.create({
-      data: {
-        senderId: sender.id,
-        receiverId: receiverUser.id,
+      // ➖ Debit sender
+      await debitWallet({
+        tx,
+        userId: sender.id,
+        walletType: "ACCOUNT",
         amount: transferAmount,
-        packageId: null, // account balance transfer
-        // status will be handled by admin approval
-      },
+        source: "TRANSFER_OUT",
+        note: `Transfer to ${receiverUser.username}`,
+      });
+
+      // ➕ Credit receiver
+      await creditWallet({
+        tx,
+        userId: receiverUser.id,
+        walletType: "ACCOUNT",
+        amount: transferAmount,
+        source: "TRANSFER_IN",
+        note: `Transfer from ${sender.username}`,
+      });
+
+      // 📄 Save history as APPROVED
+      await tx.balanceTransfer.create({
+        data: {
+          senderId: sender.id,
+          receiverId: receiverUser.id,
+          amount: transferAmount,
+          status: "APPROVED",
+          packageId: null,
+        },
+      });
     });
 
     return Response.json({
       success: true,
-      message: "Transfer request submitted. Waiting for admin approval.",
+      message: "Balance transferred successfully",
     });
 
   } catch (err) {
-    console.error("TRANSFER REQUEST ERROR:", err);
+    console.error("TRANSFER ERROR:", err);
     return Response.json(
-      { error: err.message || "Transfer request failed" },
+      { error: err.message || "Transfer failed" },
       { status: 500 }
     );
   }
