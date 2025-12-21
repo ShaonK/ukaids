@@ -13,7 +13,7 @@ export default function UserLayout({ children }) {
       </div>
 
       {/* --- MAIN SCROLLABLE CONTENT --- */}
-      <div className="pt-[40px] pb-[70px] overflow-y-auto">
+      <div className="pt-[40px] pb-[120px] overflow-y-auto">
         {children}
       </div>
 

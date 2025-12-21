@@ -79,3 +79,27 @@ a {
   color: var(--foreground);
   text-decoration: none;
 }
+/* ================================
+   PDF SAFE MODE (html2canvas fix)
+   ================================ */
+[data-pdf="true"],
+[data-pdf="true"] * {
+  color: #ffffff !important;
+  background-color: transparent !important;
+  border-color: #444444 !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+/* Force solid background for PDF */
+[data-pdf="true"] {
+  background-color: #121212 !important;
+}
+
+/* Disable gradients that may use lab()/oklab() */
+[data-pdf="true"] [class*="gradient"],
+[data-pdf="true"] [class*="bg-gradient"],
+[data-pdf="true"] [class*="border-gradient"] {
+  background-image: none !important;
+  border-image: none !important;
+}

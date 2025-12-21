@@ -1,30 +1,16 @@
 "use client";
 
-import Image from "next/image";
-
 export default function UserIntroHero() {
   return (
-    <div className="w-full flex flex-col items-center text-center">
+    <div className="px-4 py-6 text-center">
+      <h1 className="text-[26px] font-bold text-yellow-400 mb-3">
+        Welcome to UKAIDS
+      </h1>
 
-      {/* Gradient Border Wrapper */}
-      <div className="
-        w-[95%] 
-        rounded-xl 
-        p-[2px] 
-        bg-[linear-gradient(180deg,#3B82F6,#EC7B03)]
-      ">
-        {/* Inner Image Container */}
-        <div className="relative rounded-xl overflow-hidden w-full h-[480px] bg-black">
-          <Image
-            src="/user-intro-hero.png"
-            alt="UKAIDS Introduction Banner"
-            fill
-            priority
-            className="object-cover object-top"
-          />
-        </div>
-      </div>
-
+      <p className="text-[14px] text-gray-300 leading-6">
+        UKAIDS is a transparent, rule-based participation platform that combines
+        structured earning opportunities with humanitarian support initiatives.
+      </p>
     </div>
   );
 }
