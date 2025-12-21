@@ -24,7 +24,7 @@ export default function QuickActions() {
     },
     {
       icon: "/plans.png",
-      label: "Plans",
+      label: "Packages",
       path: "/user/packages",
     },
   ];
