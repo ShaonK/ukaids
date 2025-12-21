@@ -1,9 +1,12 @@
 import UserIntroHero from "./components/UserIntroHero";
-import SystemFlow from "./components/SystemFlow";
 import HumanitarianNote from "./components/HumanitarianNote";
-import IntroRules from "./components/IntroRules";
-import WalletOverview from "./components/WalletOverview";
 import IntroActions from "./components/IntroActions";
+
+// ✅ Accordion based detailed sections
+import DepositSystemAccordion from "./components/DepositSystemAccordion";
+import ReferralCommissionAccordion from "./components/ReferralCommissionAccordion";
+import ROIRequirementsAccordion from "./components/ROIRequirementsAccordion";
+import WalletSystemAccordion from "./components/WalletSystemAccordion";
 
 export const metadata = {
   title: "Introduction | UKAIDS",
@@ -16,11 +19,19 @@ export default function IntroductionPage() {
       data-pdf="true"
       className="w-[360px] min-h-screen mx-auto bg-[#121212] text-white pb-10"
     >
+      {/* Hero */}
       <UserIntroHero />
-      <SystemFlow />
+
+      {/* Detailed requirement sections */}
+      <DepositSystemAccordion />
+      <ReferralCommissionAccordion />
+      <ROIRequirementsAccordion />
+      <WalletSystemAccordion />
+
+      {/* Humanitarian commitment */}
       <HumanitarianNote />
-      <IntroRules />
-      <WalletOverview />
+
+      {/* Share + PDF download */}
       <IntroActions />
     </div>
   );
