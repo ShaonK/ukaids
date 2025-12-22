@@ -9,6 +9,8 @@ export default function RechargePageClient() {
     const depositAddress =
         "TLaot66AMVYRtxwGeVdQgnmrrv6X9txA6L";
 
+    const NETWORK = "TRC20";
+
     const [amount, setAmount] = useState("");
     const [trx, setTrx] = useState("");
     const [loading, setLoading] = useState(false);
@@ -65,6 +67,17 @@ export default function RechargePageClient() {
             </h2>
 
             <div className="w-[340px] bg-[#121212] border border-gray-800 rounded-xl p-5 space-y-4">
+
+                {/* NETWORK INFO */}
+                <div className="bg-[#1A1A1A] border border-orange-600/40 rounded-lg px-3 py-2 text-center">
+                    <p className="text-xs text-gray-400">
+                        Send only via network
+                    </p>
+                    <p className="text-sm font-semibold text-orange-400">
+                        {NETWORK}
+                    </p>
+                </div>
+
                 {/* ADDRESS */}
                 <div
                     onClick={copyAddress}
@@ -74,9 +87,14 @@ export default function RechargePageClient() {
                         {depositAddress}
                     </p>
                     <p className="text-xs mt-1 text-orange-400">
-                        {copied ? "Copied!" : "Tap to copy address"}
+                        {copied ? "Address Copied!" : "Tap to copy address"}
                     </p>
                 </div>
+
+                {/* WARNING */}
+                <p className="text-[11px] text-center text-red-400">
+                    ⚠️ Sending via any other network will result in permanent loss.
+                </p>
 
                 {/* QR */}
                 <div className="flex justify-center">
