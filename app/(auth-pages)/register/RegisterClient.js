@@ -5,6 +5,20 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import registerAction from "./action";
 
+/* --------------------
+   COUNTRY LIST
+-------------------- */
+const COUNTRIES = [
+    { code: "+44", flag: "/flags/gb.svg" },
+    { code: "+880", flag: "/flags/bd.svg" },
+    { code: "+91", flag: "/flags/in.svg" },
+    { code: "+92", flag: "/flags/pk.svg" },
+    { code: "+1", flag: "/flags/us.svg" },
+    { code: "+971", flag: "/flags/ae.svg" },
+    { code: "+966", flag: "/flags/sa.svg" },
+    { code: "+60", flag: "/flags/my.svg" },
+];
+
 export default function RegisterClient() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -26,13 +40,14 @@ export default function RegisterClient() {
         fullname: "",
         username: "",
         referral: "",
-        countryCode: "+880",
+        countryCode: "+44", // 🇬🇧 default
         mobile: "",
         email: "",
         password: "",
         cpassword: "",
         tpassword: "",
         captchaAnswer: "",
+        agree: false,
     });
 
     const [showPass, setShowPass] = useState(false);
@@ -47,13 +62,21 @@ export default function RegisterClient() {
     }, [refFromUrl]);
 
     function handleChange(e) {
-        const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        setForm((prev) => ({
+            ...prev,
+            [name]: type === "checkbox" ? checked : value,
+        }));
     }
 
     async function handleSubmit(e) {
         e.preventDefault();
         setMessage("");
+
+        if (!form.agree) {
+            setMessage("Please accept the terms & conditions");
+            return;
+        }
 
         if (Number(form.captchaAnswer) !== captcha.a + captcha.b) {
             setMessage("Captcha answer is incorrect");
@@ -75,8 +98,11 @@ export default function RegisterClient() {
 
     const inputClass =
         "w-full p-3 rounded-lg bg-white text-black focus:outline-none focus:ring-2 focus:ring-orange-500";
-
     const labelClass = "text-sm text-gray-300 mb-1 font-medium";
+
+    const selectedCountry = COUNTRIES.find(
+        (c) => c.code === form.countryCode
+    );
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-black via-[#0f2027] to-[#2c5364] flex items-center justify-center px-4">
@@ -118,32 +144,50 @@ export default function RegisterClient() {
                         value={form.referral}
                         onChange={handleChange}
                         readOnly={!!refFromUrl}
-                        className={`w-full p-3 rounded-lg ${refFromUrl
+                        className={`w-full p-3 rounded-lg ${
+                            refFromUrl
                                 ? "bg-gray-300 text-black cursor-not-allowed"
                                 : "bg-white text-black"
-                            }`}
+                        }`}
                     />
                 </div>
 
                 {/* Mobile */}
                 <div>
                     <label className={labelClass}>Mobile Number</label>
-                    <div className="flex gap-2">
-                        <select
-                            name="countryCode"
-                            value={form.countryCode}
-                            onChange={handleChange}
-                            className="p-3 rounded-lg bg-white text-black"
-                        >
-                            <option value="+880">🇧🇩 +880</option>
-                            <option value="+91">🇮🇳 +91</option>
-                            <option value="+92">🇵🇰 +92</option>
-                        </select>
 
+                    <div className="flex gap-2">
+                        {/* Country Select */}
+                        <div className="relative">
+                            <select
+                                name="countryCode"
+                                value={form.countryCode}
+                                onChange={handleChange}
+                                className="appearance-none p-3 pl-12 rounded-lg bg-white text-black w-[110px] cursor-pointer"
+                            >
+                                {COUNTRIES.map((c) => (
+                                    <option key={c.code} value={c.code}>
+                                        {c.code}
+                                    </option>
+                                ))}
+                            </select>
+
+                            {/* Flag icon */}
+                            {selectedCountry && (
+                                <img
+                                    src={selectedCountry.flag}
+                                    alt="flag"
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 w-6 h-4 object-cover rounded-sm pointer-events-none"
+                                />
+                            )}
+                        </div>
+
+                        {/* Phone */}
                         <input
                             name="mobile"
                             value={form.mobile}
                             onChange={handleChange}
+                            placeholder="Phone number"
                             className={inputClass}
                         />
                     </div>
@@ -228,6 +272,23 @@ export default function RegisterClient() {
                     </div>
                 </div>
 
+                {/* Terms */}
+                <div className="flex items-center gap-2 text-sm text-gray-300">
+                    <input
+                        type="checkbox"
+                        name="agree"
+                        checked={form.agree}
+                        onChange={handleChange}
+                        className="accent-orange-500"
+                    />
+                    <span>
+                        I agree to the{" "}
+                        <span className="text-orange-400 font-semibold">
+                            Terms & Conditions
+                        </span>
+                    </span>
+                </div>
+
                 {message && (
                     <p className="text-red-500 text-sm text-center font-medium">
                         {message}
@@ -242,7 +303,6 @@ export default function RegisterClient() {
                     {loading ? "Creating Account..." : "Register"}
                 </button>
 
-                {/* 🔗 LOGIN LINK */}
                 <p className="text-center text-sm text-gray-400 pt-2">
                     Already have an account?{" "}
                     <Link
