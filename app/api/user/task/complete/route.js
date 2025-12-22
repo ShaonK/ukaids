@@ -4,8 +4,14 @@ import { getUser } from "@/lib/getUser";
 import { creditWallet } from "@/lib/walletService";
 import { distributeLevelIncome } from "@/lib/levelService";
 
-// ✅ PROD: 24 HOURS
-const TASK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+/**
+ * ✅ Next Midnight (00:00) calculator
+ */
+function getNextMidnightMs() {
+  const d = new Date();
+  d.setHours(24, 0, 0, 0); // next day 00:00
+  return d.getTime();
+}
 
 export async function POST() {
   try {
@@ -26,12 +32,13 @@ export async function POST() {
     }
 
     const now = Date.now();
-    const baseTime = activePkg.lastRoiAt
-      ? new Date(activePkg.lastRoiAt).getTime()
-      : new Date(activePkg.startedAt).getTime();
+    const nextMidnightMs = getNextMidnightMs();
 
-    // ⏳ 24h lock check
-    if (now - baseTime < TASK_INTERVAL_MS) {
+    /**
+     * ⏳ MIDNIGHT LOCK CHECK
+     * Task is ready only after reaching next midnight
+     */
+    if (now < nextMidnightMs && activePkg.lastRoiAt) {
       return Response.json({ error: "Task not ready" }, { status: 400 });
     }
 

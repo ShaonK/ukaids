@@ -2,8 +2,14 @@
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 
-// ✅ PROD: 24 HOURS
-const TASK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+/**
+ * ✅ Next Midnight (00:00) calculator
+ */
+function getNextMidnightMs() {
+  const d = new Date();
+  d.setHours(24, 0, 0, 0); // next day 00:00
+  return d.getTime();
+}
 
 export async function GET() {
   try {
@@ -30,16 +36,16 @@ export async function GET() {
     }
 
     const now = Date.now();
+    const nextMidnightMs = getNextMidnightMs();
 
-    const baseTime = activePkg.lastRoiAt
-      ? new Date(activePkg.lastRoiAt).getTime()
-      : new Date(activePkg.startedAt).getTime();
-
-    const isReady = now - baseTime >= TASK_INTERVAL_MS;
+    /**
+     * ✅ READY ONLY AT MIDNIGHT
+     */
+    const isReady = now >= nextMidnightMs;
 
     const nextRunMs = isReady
       ? null
-      : baseTime + TASK_INTERVAL_MS;
+      : nextMidnightMs;
 
     const roiAmount = Number(
       (activePkg.amount * 0.02).toFixed(6)
