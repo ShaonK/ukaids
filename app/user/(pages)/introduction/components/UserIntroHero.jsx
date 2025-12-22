@@ -7,7 +7,7 @@ export default function UserIntroHero() {
     <div className="px-4 py-6 text-center">
       <Image
         src="/introduction/UKAIDS platform introduction and features.png"
-        alt="UKAIDS Platform Introduction"
+        alt="UKAIDS platform introduction and features"
         width={360}
         height={360}
         className="rounded-xl mx-auto mb-4"
@@ -19,8 +19,8 @@ export default function UserIntroHero() {
       </h1>
 
       <p className="text-[14px] text-gray-300 leading-6">
-        UKAIDS is a transparent, rule-based participation platform that combines
-        structured earning opportunities with humanitarian support initiatives.
+        A transparent, rule-based participation platform that connects
+        financial growth with humanitarian responsibility.
       </p>
     </div>
   );

@@ -7,6 +7,11 @@ import DepositSystemAccordion from "./components/DepositSystemAccordion";
 import ReferralCommissionAccordion from "./components/ReferralCommissionAccordion";
 import ROIRequirementsAccordion from "./components/ROIRequirementsAccordion";
 import WalletSystemAccordion from "./components/WalletSystemAccordion";
+import VIPRankAccordion from "./components/VIPRankAccordion";
+import WithdrawSystemAccordion from "./components/WithdrawSystemAccordion";
+import PlatformOverviewCard from "./components/PlatformOverviewCard";
+
+
 
 export const metadata = {
   title: "Introduction | UKAIDS",
@@ -19,19 +24,16 @@ export default function IntroductionPage() {
       data-pdf="true"
       className="w-[360px] min-h-screen mx-auto bg-[#121212] text-white pb-10"
     >
-      {/* Hero */}
+  
       <UserIntroHero />
-
-      {/* Detailed requirement sections */}
+      <PlatformOverviewCard />
       <DepositSystemAccordion />
       <ReferralCommissionAccordion />
       <ROIRequirementsAccordion />
       <WalletSystemAccordion />
-
-      {/* Humanitarian commitment */}
+      <VIPRankAccordion />
+      <WithdrawSystemAccordion />
       <HumanitarianNote />
-
-      {/* Share + PDF download */}
       <IntroActions />
     </div>
   );
