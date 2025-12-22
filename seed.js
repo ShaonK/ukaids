@@ -1,102 +1,175 @@
+import "dotenv/config";
 import prisma from "./lib/prisma.js";
 import bcrypt from "bcryptjs";
 
+/**
+ * 🔒 PRODUCTION GUARD (ONE TIME USE)
+ */
+if (process.env.NODE_ENV === "production") {
+  if (process.env.ALLOW_PROD_SEED !== "true") {
+    console.error("❌ Production seed blocked!");
+    console.error("👉 Run with ALLOW_PROD_SEED=true");
+    process.exit(1);
+  }
+}
+
 async function main() {
-  console.log("⏳ Running Seeder...");
+  console.log("🧹 Cleaning database (Package preserved)...");
 
   /**
    * =========================
-   * 1️⃣ ADMIN CREATE
+   * 1️⃣ CLEAN DATABASE
+   * (ORDER IS CRITICAL)
    * =========================
    */
-  const adminExists = await prisma.admin.findFirst();
 
-  if (!adminExists) {
-    const adminPassword = await bcrypt.hash("admin123", 10);
+  // ---- USER DEPENDENCIES ----
+  await prisma.withdrawAddress.deleteMany();
+  await prisma.referralCommissionHistory.deleteMany();
+  await prisma.roiLevelIncome.deleteMany();
+  await prisma.roiHistory.deleteMany();
+  await prisma.roiEarning.deleteMany();
+  await prisma.userDepositRoi.deleteMany();
 
-    const admin = await prisma.admin.create({
-      data: {
-        username: "admin",
-        password: adminPassword,
+  await prisma.balanceTransfer.deleteMany();
+
+  await prisma.depositHistory.deleteMany();
+  await prisma.deposit.deleteMany();
+  await prisma.approvedDeposit.deleteMany();
+  await prisma.rejectedDeposit.deleteMany();
+
+  await prisma.withdrawRequest.deleteMany();
+  await prisma.withdraw.deleteMany();
+  await prisma.approvedWithdraw.deleteMany();
+  await prisma.rejectedWithdraw.deleteMany();
+
+  await prisma.walletTransaction.deleteMany();
+  await prisma.wallet.deleteMany();
+
+  await prisma.userStatusHistory.deleteMany();
+  await prisma.userPackage.deleteMany(); // 🔥 Package stays, only relations cleared
+
+  // ---- CORE TABLES ----
+  await prisma.user.deleteMany();
+  await prisma.adminAuditLog.deleteMany();
+  await prisma.admin.deleteMany();
+
+  console.log("✅ Database cleaned (Package untouched)");
+
+  /**
+   * =========================
+   * 2️⃣ CREATE ADMINS
+   * =========================
+   */
+  const adminPassword = await bcrypt.hash("123456", 10);
+
+  await prisma.admin.createMany({
+    data: [
+      { username: "AdiminFaruk", password: adminPassword },
+      { username: "AdiminSaiful", password: adminPassword },
+    ],
+  });
+
+  console.log("✅ Admins created");
+
+  /**
+   * =========================
+   * 3️⃣ CREATE USERS
+   * =========================
+   */
+  const userPassword = await bcrypt.hash("123456", 10);
+  const txnPassword = await bcrypt.hash("123456", 10);
+
+  const faruk = await prisma.user.create({
+    data: {
+      fullname: "Faruk Root",
+      username: "FarukRoot",
+      referralCode: "FARUKROOT",
+      mobile: "880100000001",
+      email: "faruk@root.com",
+      password: userPassword,
+      txnPassword,
+      isActive: true,
+    },
+  });
+
+  const saiful = await prisma.user.create({
+    data: {
+      fullname: "Saiful Root",
+      username: "SaifulRoot",
+      referralCode: "SAIFULROOT",
+      mobile: "880100000002",
+      email: "saiful@root.com",
+      password: userPassword,
+      txnPassword,
+      isActive: true,
+    },
+  });
+
+  console.log("✅ Users created");
+
+  /**
+   * =========================
+   * 4️⃣ CREATE WALLETS
+   * =========================
+   */
+  await prisma.wallet.createMany({
+    data: [
+      {
+        userId: faruk.id,
+        mainWallet: 0,
+        depositWallet: 0,
+        roiWallet: 0,
+        referralWallet: 0,
+        levelWallet: 0,
+        returnWallet: 0,
+        salaryWallet: 0,
+        donationWallet: 0,
       },
-    });
+      {
+        userId: saiful.id,
+        mainWallet: 0,
+        depositWallet: 0,
+        roiWallet: 0,
+        referralWallet: 0,
+        levelWallet: 0,
+        returnWallet: 0,
+        salaryWallet: 0,
+        donationWallet: 0,
+      },
+    ],
+  });
 
-    console.log("✅ Admin created:", admin.username);
-  } else {
-    console.log("✔ Admin already exists");
-  }
+  console.log("✅ Wallets created");
 
   /**
    * =========================
-   * 2️⃣ ROOT USER CREATE
+   * 5️⃣ USER STATUS HISTORY
    * =========================
    */
-  const rootExists = await prisma.user.findUnique({
-    where: { username: "root" },
+  await prisma.userStatusHistory.createMany({
+    data: [
+      {
+        userId: faruk.id,
+        status: "active",
+        reason: "Initial production reset",
+      },
+      {
+        userId: saiful.id,
+        status: "active",
+        reason: "Initial production reset",
+      },
+    ],
   });
-
-  if (rootExists) {
-    console.log("✔ Root user already exists (ID:", rootExists.id + ")");
-    return;
-  }
-
-  const passwordHash = await bcrypt.hash("12345", 10);
-  const txnPasswordHash = await bcrypt.hash("67890", 10);
-
-  const rootUser = await prisma.user.create({
-    data: {
-      fullname: "Root User",
-      username: "root",
-      referralCode: "ROOT000",
-      mobile: "0000000000",
-      email: "root@mail.com",
-      password: passwordHash,
-      txnPassword: txnPasswordHash,
-      isActive: true, // 🔥 ACTIVE
-    },
-  });
-
-  console.log("✅ Root user created:", rootUser.username);
-
-  /**
-   * =========================
-   * 3️⃣ WALLET CREATE
-   * =========================
-   */
-  await prisma.wallet.create({
-    data: {
-      userId: rootUser.id,
-      mainWallet: 0,
-      depositWallet: 0,
-      roiWallet: 0,
-      referralWallet: 0,
-      levelWallet: 0,
-      returnWallet: 0,
-    },
-  });
-
-  console.log("✅ Wallet created for root user");
-
-  /**
-   * =========================
-   * 4️⃣ USER STATUS HISTORY
-   * =========================
-   */
-  await prisma.userStatusHistory.create({
-    data: {
-      userId: rootUser.id,
-      status: "active",
-      reason: "Initial root user activation",
-    },
-  });
-
-  console.log("✅ User status history added");
 
   console.log("🎉 SEED COMPLETED SUCCESSFULLY");
 }
 
 main()
-  .then(() => process.exit(0))
+  .then(() => {
+    console.log("✅ DONE. Remember to unset ALLOW_PROD_SEED");
+    process.exit(0);
+  })
   .catch((err) => {
     console.error("❌ Seeder failed:", err);
     process.exit(1);

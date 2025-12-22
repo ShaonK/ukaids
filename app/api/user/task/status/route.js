@@ -2,7 +2,8 @@
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 
-const TASK_INTERVAL_MS = 60 * 1000; // dev: 1 minute
+// ✅ PROD: 24 HOURS
+const TASK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export async function GET() {
   try {
@@ -30,7 +31,6 @@ export async function GET() {
 
     const now = Date.now();
 
-    // ✅ FIX: baseTime (lastRoiAt OR startedAt)
     const baseTime = activePkg.lastRoiAt
       ? new Date(activePkg.lastRoiAt).getTime()
       : new Date(activePkg.startedAt).getTime();

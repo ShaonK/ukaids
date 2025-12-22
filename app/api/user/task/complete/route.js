@@ -4,7 +4,8 @@ import { getUser } from "@/lib/getUser";
 import { creditWallet } from "@/lib/walletService";
 import { distributeLevelIncome } from "@/lib/levelService";
 
-const TASK_INTERVAL_MS = 60 * 1000; // DEV: 1 min
+// ✅ PROD: 24 HOURS
+const TASK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export async function POST() {
   try {
@@ -29,6 +30,7 @@ export async function POST() {
       ? new Date(activePkg.lastRoiAt).getTime()
       : new Date(activePkg.startedAt).getTime();
 
+    // ⏳ 24h lock check
     if (now - baseTime < TASK_INTERVAL_MS) {
       return Response.json({ error: "Task not ready" }, { status: 400 });
     }
@@ -36,7 +38,7 @@ export async function POST() {
     const roiAmount = Number((activePkg.amount * 0.02).toFixed(6));
 
     // -------------------------
-    // 1️⃣ FAST TRANSACTION (NO MLM / LOOP)
+    // 1️⃣ FAST TRANSACTION
     // -------------------------
     await prisma.$transaction(async (tx) => {
       // ROI wallet credit
@@ -69,7 +71,7 @@ export async function POST() {
     });
 
     // -------------------------
-    // 2️⃣ LEVEL INCOME (OUTSIDE TX ✅)
+    // 2️⃣ LEVEL INCOME
     // -------------------------
     await distributeLevelIncome({
       buyerId: userId,
@@ -83,6 +85,9 @@ export async function POST() {
 
   } catch (err) {
     console.error("❌ TASK COMPLETE ERROR:", err);
-    return Response.json({ error: err.message || "Server error" }, { status: 500 });
+    return Response.json(
+      { error: err.message || "Server error" },
+      { status: 500 }
+    );
   }
 }

@@ -161,7 +161,7 @@ export default function RegisterClient() {
 
         {/* Country */}
         <div>
-          <label className={labelClass}>Country</label>
+          <label className={labelClass}>Select Country</label>
           <div className="relative">
             <select
               value={form.country.code}
