@@ -48,8 +48,6 @@ export default function TaskCard({ pkg }) {
         <p className="font-semibold text-[#EC7B03]">{pkg.name}</p>
         <p>💰 Deposit: {fmt(amount)}</p>
         <p>📈 Daily ROI: {fmt(dailyROI)}</p>
-        <p>👥 Level Income: {fmt(levelIncome)}</p>
-        <p>🤝 Referral: {fmt(referralIncome)}</p>
       </div>
 
       {/* TAG */}

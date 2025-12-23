@@ -4,14 +4,9 @@ import prisma from "@/lib/prisma";
 
 export async function POST(req) {
   try {
-    console.log("🚨 APPROVE API HIT");
-
     const body = await req.json();
-    console.log("🧾 BODY =", body);
 
-    // 🔥 accept both id and depositId
     const depositId = body.depositId ?? body.id;
-
     if (!depositId) {
       return NextResponse.json(
         { error: "Deposit ID missing" },
@@ -38,15 +33,27 @@ export async function POST(req) {
       );
     }
 
-    // 🔐 TRANSACTION (wallet + history safe)
+    // 🔐 TRANSACTION
     await prisma.$transaction(async (tx) => {
-      // 1️⃣ Approve deposit
+      // 1️⃣ Load wallet
+      const wallet = await tx.wallet.findUnique({
+        where: { userId: deposit.userId },
+      });
+
+      if (!wallet) {
+        throw new Error("Wallet not found for user");
+      }
+
+      const balanceBefore = wallet.mainWallet;
+      const balanceAfter = balanceBefore.plus(deposit.amount);
+
+      // 2️⃣ Approve deposit
       await tx.deposit.update({
         where: { id: deposit.id },
         data: { status: "approved" },
       });
 
-      // 2️⃣ Credit wallet
+      // 3️⃣ Update wallet balance
       await tx.wallet.update({
         where: { userId: deposit.userId },
         data: {
@@ -54,14 +61,17 @@ export async function POST(req) {
         },
       });
 
-      // 3️⃣ Wallet history (🔥 THIS WAS MISSING)
+      // 4️⃣ Wallet history (✅ schema-correct)
       await tx.walletTransaction.create({
         data: {
           userId: deposit.userId,
           walletType: "MAIN",
+          direction: "CREDIT",
           amount: deposit.amount,
-          type: "CREDIT",
+          balanceBefore,
+          balanceAfter,
           source: "DEPOSIT_APPROVED",
+          referenceId: deposit.id,
           note: "Deposit approved by admin",
         },
       });
@@ -76,7 +86,7 @@ export async function POST(req) {
   } catch (err) {
     console.error("❌ APPROVE ERROR:", err);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: err.message || "Internal server error" },
       { status: 500 }
     );
   }
