@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import adminLoginAction from "./action";
 
 export default function AdminLoginClient() {
@@ -68,6 +69,14 @@ export default function AdminLoginClient() {
         >
           Login
         </button>
+
+        {/* ✅ FORGOT PASSWORD LINK */}
+        <Link
+          href="/admin-login/forgot-password"
+          className="text-sm text-blue-600 text-center hover:underline mt-2"
+        >
+          Forgot password?
+        </Link>
       </div>
     </div>
   );

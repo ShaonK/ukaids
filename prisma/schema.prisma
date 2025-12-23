@@ -160,7 +160,20 @@ model Admin {
   password  String
   createdAt DateTime         @default(now())
   processed DepositHistory[] @relation("AdminProcessRelation")
+  passwordResets AdminPasswordReset[]
 }
+model AdminPasswordReset {
+  id        Int      @id @default(autoincrement())
+  adminId   Int
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  admin Admin @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+}
+
 
 model AdminAuditLog {
   id         Int      @id @default(autoincrement())
