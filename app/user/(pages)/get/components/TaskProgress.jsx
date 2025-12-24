@@ -18,14 +18,15 @@ export default function TaskProgress({ task, onStart, loading }) {
       const diffMs = nextRunMs - Date.now();
 
       if (diffMs <= 0) {
-        setCountdown("00:00");
+        setCountdown("00:00:00");
       } else {
         const totalSec = Math.floor(diffMs / 1000);
-        const m = Math.floor(totalSec / 60);
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
         const s = totalSec % 60;
 
         setCountdown(
-          `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+          `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
         );
       }
     }, 1000);

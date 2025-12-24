@@ -2,9 +2,12 @@
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 
-/**
- * ✅ Next Midnight (00:00) calculator
- */
+function getTodayMidnightMs() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0); // today 00:00
+  return d.getTime();
+}
+
 function getNextMidnightMs() {
   const d = new Date();
   d.setHours(24, 0, 0, 0); // next day 00:00
@@ -18,38 +21,31 @@ export async function GET() {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = user.id;
-
-    // 🔎 Load active package
     const activePkg = await prisma.userPackage.findFirst({
-      where: {
-        userId,
-        isActive: true,
-      },
+      where: { userId: user.id, isActive: true },
     });
 
     if (!activePkg) {
-      return Response.json({
-        success: true,
-        earning: null,
-      });
+      return Response.json({ success: true, earning: null });
     }
 
     const now = Date.now();
+    const todayMidnightMs = getTodayMidnightMs();
     const nextMidnightMs = getNextMidnightMs();
 
-    /**
-     * ✅ READY ONLY AT MIDNIGHT
-     */
-    const isReady = now >= nextMidnightMs;
+    const lastRoiMs = activePkg.lastRoiAt
+      ? new Date(activePkg.lastRoiAt).getTime()
+      : null;
 
-    const nextRunMs = isReady
-      ? null
-      : nextMidnightMs;
+    // ✅ READY RULE (permanent midnight system)
+    // - never did task → ready
+    // - did task before today → ready
+    // - did task today → locked until next midnight
+    const isReady = !lastRoiMs || lastRoiMs < todayMidnightMs;
 
-    const roiAmount = Number(
-      (activePkg.amount * 0.02).toFixed(6)
-    );
+    const nextRunMs = isReady ? null : nextMidnightMs;
+
+    const roiAmount = Number((activePkg.amount * 0.02).toFixed(6));
 
     return Response.json({
       success: true,
@@ -59,12 +55,8 @@ export async function GET() {
         amount: roiAmount,
       },
     });
-
   } catch (err) {
     console.error("❌ TASK STATUS ERROR:", err);
-    return Response.json(
-      { error: "Server error" },
-      { status: 500 }
-    );
+    return Response.json({ error: "Server error" }, { status: 500 });
   }
 }

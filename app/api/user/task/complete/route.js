@@ -4,12 +4,9 @@ import { getUser } from "@/lib/getUser";
 import { creditWallet } from "@/lib/walletService";
 import { distributeLevelIncome } from "@/lib/levelService";
 
-/**
- * ✅ Next Midnight (00:00) calculator
- */
-function getNextMidnightMs() {
+function getTodayMidnightMs() {
   const d = new Date();
-  d.setHours(24, 0, 0, 0); // next day 00:00
+  d.setHours(0, 0, 0, 0); // today 00:00
   return d.getTime();
 }
 
@@ -20,26 +17,25 @@ export async function POST() {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = user.id;
-
-    // 🔎 active package
     const activePkg = await prisma.userPackage.findFirst({
-      where: { userId, isActive: true },
+      where: { userId: user.id, isActive: true },
     });
 
     if (!activePkg) {
       return Response.json({ error: "No active package" }, { status: 400 });
     }
 
-    const now = Date.now();
-    const nextMidnightMs = getNextMidnightMs();
+    const todayMidnightMs = getTodayMidnightMs();
+    const lastRoiMs = activePkg.lastRoiAt
+      ? new Date(activePkg.lastRoiAt).getTime()
+      : null;
 
-    /**
-     * ⏳ MIDNIGHT LOCK CHECK
-     * Task is ready only after reaching next midnight
-     */
-    if (now < nextMidnightMs && activePkg.lastRoiAt) {
-      return Response.json({ error: "Task not ready" }, { status: 400 });
+    // ❌ BLOCK: already completed today
+    if (lastRoiMs && lastRoiMs >= todayMidnightMs) {
+      return Response.json(
+        { error: "Task already completed today" },
+        { status: 400 }
+      );
     }
 
     const roiAmount = Number((activePkg.amount * 0.02).toFixed(6));
@@ -51,23 +47,23 @@ export async function POST() {
       // ROI wallet credit
       await creditWallet({
         tx,
-        userId,
+        userId: user.id,
         walletType: "ROI",
         amount: roiAmount,
         source: "TASK_ROI",
-        note: "Task completed ROI",
+        note: "Daily task ROI",
       });
 
       // ROI history
       await tx.roiHistory.create({
         data: {
-          userId,
+          userId: user.id,
           amount: roiAmount,
           earningId: null,
         },
       });
 
-      // Update package
+      // Update package (mark completed now)
       await tx.userPackage.update({
         where: { id: activePkg.id },
         data: {
@@ -81,20 +77,13 @@ export async function POST() {
     // 2️⃣ LEVEL INCOME
     // -------------------------
     await distributeLevelIncome({
-      buyerId: userId,
+      buyerId: user.id,
       roiAmount,
     });
 
-    return Response.json({
-      success: true,
-      roi: roiAmount,
-    });
-
+    return Response.json({ success: true, roi: roiAmount });
   } catch (err) {
     console.error("❌ TASK COMPLETE ERROR:", err);
-    return Response.json(
-      { error: err.message || "Server error" },
-      { status: 500 }
-    );
+    return Response.json({ error: "Server error" }, { status: 500 });
   }
 }
