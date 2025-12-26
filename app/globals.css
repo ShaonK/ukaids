@@ -1,20 +1,40 @@
 @tailwind utilities;
 @import "tailwindcss";
+
 @layer utilities {
+
   /* Corner gradient borders */
-  .border-gradient-tl { border-image: linear-gradient(180deg, #3B82F6 0%, #EC7B03 100%) 1; }
-  .border-gradient-tr { border-image: linear-gradient(180deg, #3B82F6 0%, #EC7B03 100%) 1; }
-  .border-gradient-bl { border-image: linear-gradient(180deg, #3B82F6 0%, #EC7B03 100%) 1; }
-  .border-gradient-br { border-image: linear-gradient(180deg, #3B82F6 0%, #EC7B03 100%) 1; }
+  .border-gradient-tl {
+    border-image: linear-gradient(180deg, #3B82F6 0%, #EC7B03 100%) 1;
+  }
+
+  .border-gradient-tr {
+    border-image: linear-gradient(180deg, #3B82F6 0%, #EC7B03 100%) 1;
+  }
+
+  .border-gradient-bl {
+    border-image: linear-gradient(180deg, #3B82F6 0%, #EC7B03 100%) 1;
+  }
+
+  .border-gradient-br {
+    border-image: linear-gradient(180deg, #3B82F6 0%, #EC7B03 100%) 1;
+  }
+
   /* Inner card gradient border */
-  .border-gradient-inner { border-image: linear-gradient(102.93deg, rgba(201, 119, 30, 0.7) 26.82%, rgba(59, 130, 246, 0.7) 82.57%) 1; }
+  .border-gradient-inner {
+    border-image: linear-gradient(102.93deg, rgba(201, 119, 30, 0.7) 26.82%, rgba(59, 130, 246, 0.7) 82.57%) 1;
+  }
 }
+
 @keyframes fillBar {
-  from { width: 0%; }
-  to { width: 100%; }
+  from {
+    width: 0%;
+  }
+
+  to {
+    width: 100%;
+  }
 }
-
-
 
 :root {
   --sidebar-bg: #0B0F1A;
@@ -26,21 +46,19 @@
   --menu-active-text: #FFFFFF;
   --icon-color: #AEB3BD;
   --icon-hover: #FFFFFF;
-
   --title-size: 30px;
   --section-title-size: 21px;
   --menu-text-size: 17px;
   --icon-size: 18px;
   --sidebar-padding: 24px;
   --menu-row-height: 25px;
-
   --background: #ffffff;
   --foreground: #171717;
-
   /* Fonts */
   --font-sans: 'Inter', Arial, Helvetica, sans-serif;
   --font-mono: monospace;
 }
+
 /* Mobile View Design Centering for Desktop */
 body {
   background: #f3f4f6;
@@ -50,6 +68,7 @@ body {
 html {
   background: #f3f4f6;
 }
+
 /* Dark mode */
 @media (prefers-color-scheme: dark) {
   :root {
@@ -59,7 +78,8 @@ html {
 }
 
 /* Reset default margins and box-sizing */
-html, body {
+html,
+body {
   background: #000 !important;
   margin: 0;
   padding: 0;
@@ -67,11 +87,11 @@ html, body {
   min-height: 100%;
 }
 
-
 /* Paragraph justification */
 p {
   text-align: justify;
-  line-height: 1.5; /* readable line spacing */
+  line-height: 1.5;
+  /* readable line spacing */
 }
 
 /* Optional: link color */
@@ -79,9 +99,8 @@ a {
   color: var(--foreground);
   text-decoration: none;
 }
-/* ================================
-   PDF SAFE MODE (html2canvas fix)
-   ================================ */
+
+/* ================================ PDF SAFE MODE (html2canvas fix) ================================ */
 [data-pdf="true"],
 [data-pdf="true"] * {
   color: #ffffff !important;
@@ -96,10 +115,31 @@ a {
   background-color: #121212 !important;
 }
 
-/* Disable gradients that may use lab()/oklab() */
-[data-pdf="true"] [class*="gradient"],
-[data-pdf="true"] [class*="bg-gradient"],
-[data-pdf="true"] [class*="border-gradient"] {
-  background-image: none !important;
-  border-image: none !important;
+/* ==============================
+   PDF / PLAYWRIGHT MODE
+   ============================== */
+
+/* 🔑 This works for Playwright PDF */
+.glass-card {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Extra safety for child elements */
+.glass-card img,
+.glass-card h1,
+.glass-card h2,
+.glass-card h3,
+.glass-card p,
+.glass-card ul {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Optional: reduce weird effects in PDF */
+@media print {
+  * {
+    box-shadow: none !important;
+    filter: none !important;
+  }
 }
