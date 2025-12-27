@@ -7,6 +7,7 @@ export default function TaskProgress({ task, onStart, loading }) {
 
   const isReady = task?.earning?.isReady === true;
   const nextRunMs = task?.earning?.nextRunMs;
+  const reason = task?.earning?.reason;
 
   useEffect(() => {
     if (!nextRunMs || isReady) {
@@ -26,7 +27,10 @@ export default function TaskProgress({ task, onStart, loading }) {
         const s = totalSec % 60;
 
         setCountdown(
-          `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+          `${String(h).padStart(2, "0")}:${String(m).padStart(
+            2,
+            "0"
+          )}:${String(s).padStart(2, "0")}`
         );
       }
     }, 1000);
@@ -48,7 +52,13 @@ export default function TaskProgress({ task, onStart, loading }) {
         {loading ? "Processing…" : isReady ? "Start Now" : "Task Locked"}
       </button>
 
-      {!isReady && countdown && (
+      {!isReady && reason === "OFF_DAY" && (
+        <p className="text-center mt-3 text-red-500 font-medium">
+          Task available only Monday to Friday
+        </p>
+      )}
+
+      {!isReady && countdown && reason !== "OFF_DAY" && (
         <p className="text-center mt-3 text-gray-600">
           Next task in: <strong>{countdown}</strong>
         </p>

@@ -2,18 +2,31 @@
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 
-function getTodayMidnightMs() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0); // today 00:00
-  return d.getTime();
+// ---------- helpers ----------
+function getDayInfo(timezone = "UTC") {
+  const now = new Date(
+    new Date().toLocaleString("en-US", { timeZone: timezone })
+  );
+
+  const dayShort = now.toLocaleDateString("en-US", {
+    weekday: "short",
+    timeZone: timezone,
+  }); // Mon, Tue, Sat
+
+  const midnight = new Date(now);
+  midnight.setHours(0, 0, 0, 0);
+
+  const nextMidnight = new Date(midnight);
+  nextMidnight.setDate(nextMidnight.getDate() + 1);
+
+  return {
+    dayShort,
+    todayMidnightMs: midnight.getTime(),
+    nextMidnightMs: nextMidnight.getTime(),
+  };
 }
 
-function getNextMidnightMs() {
-  const d = new Date();
-  d.setHours(24, 0, 0, 0); // next day 00:00
-  return d.getTime();
-}
-
+// ---------- API ----------
 export async function GET() {
   try {
     const user = await getUser();
@@ -29,20 +42,38 @@ export async function GET() {
       return Response.json({ success: true, earning: null });
     }
 
-    const now = Date.now();
-    const todayMidnightMs = getTodayMidnightMs();
-    const nextMidnightMs = getNextMidnightMs();
+    // 🔹 Load ROI settings
+    const settings = await prisma.roiSettings.findFirst();
+    const roiDays = settings?.roiDays?.split(",") ?? [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+    ];
+    const timezone = settings?.timezone ?? "UTC";
+
+    const { dayShort, todayMidnightMs, nextMidnightMs } =
+      getDayInfo(timezone);
+
+    // ❌ OFF DAY (Sat–Sun)
+    if (!roiDays.includes(dayShort)) {
+      return Response.json({
+        success: true,
+        earning: {
+          isReady: false,
+          nextRunMs: nextMidnightMs,
+          reason: "OFF_DAY",
+        },
+      });
+    }
 
     const lastRoiMs = activePkg.lastRoiAt
       ? new Date(activePkg.lastRoiAt).getTime()
       : null;
 
-    // ✅ READY RULE (permanent midnight system)
-    // - never did task → ready
-    // - did task before today → ready
-    // - did task today → locked until next midnight
+    // ✅ Mon–Fri daily rule
     const isReady = !lastRoiMs || lastRoiMs < todayMidnightMs;
-
     const nextRunMs = isReady ? null : nextMidnightMs;
 
     const roiAmount = Number((activePkg.amount * 0.02).toFixed(6));

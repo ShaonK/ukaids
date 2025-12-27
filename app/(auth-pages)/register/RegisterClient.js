@@ -17,6 +17,7 @@ const COUNTRIES = [
   { name: "🇦🇪 United Arab Emirates", code: "+971", flag: "/flags/ae.svg" },
   { name: "🇸🇦 Saudi Arabia", code: "+966", flag: "/flags/sa.svg" },
   { name: "🇲🇾 Malaysia", code: "+60", flag: "/flags/my.svg" },
+  { name: "🇸🇬 Singapore", code: "+65", flag: "/flags/sg.svg" },
 ];
 
 export default function RegisterClient() {
