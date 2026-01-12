@@ -5,20 +5,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import registerAction from "./action";
 
-/* --------------------
-   COUNTRY LIST
--------------------- */
-const COUNTRIES = [
-  { name: "🇬🇧 United Kingdom", code: "+44", flag: "/flags/gb.svg" },
-  { name: "🇧🇩 Bangladesh", code: "+880", flag: "/flags/bd.svg" },
-  { name: "🇮🇳 India", code: "+91", flag: "/flags/in.svg" },
-  { name: "🇵🇰 Pakistan", code: "+92", flag: "/flags/pk.svg" },
-  { name: "🇺🇸 United States", code: "+1", flag: "/flags/us.svg" },
-  { name: "🇦🇪 United Arab Emirates", code: "+971", flag: "/flags/ae.svg" },
-  { name: "🇸🇦 Saudi Arabia", code: "+966", flag: "/flags/sa.svg" },
-  { name: "🇲🇾 Malaysia", code: "+60", flag: "/flags/my.svg" },
-  { name: "🇸🇬 Singapore", code: "+65", flag: "/flags/sg.svg" },
-];
+// ✅ IMPORT FULL COUNTRY LIST (125+)
+import { COUNTRIES } from "@/lib/countries";
 
 export default function RegisterClient() {
   const router = useRouter();
@@ -38,7 +26,7 @@ export default function RegisterClient() {
     fullname: "",
     username: "",
     referral: "",
-    country: COUNTRIES[0],
+    country: COUNTRIES[0], // ✅ default first country
     mobile: "",
     email: "",
     password: "",
@@ -69,8 +57,10 @@ export default function RegisterClient() {
 
   function handleCountryChange(e) {
     const selected = COUNTRIES.find(
-      (c) => c.code === e.target.value
+      (c) => c.dialCode === e.target.value
     );
+    if (!selected) return;
+
     setForm((prev) => ({
       ...prev,
       country: selected,
@@ -95,8 +85,8 @@ export default function RegisterClient() {
 
     const payload = {
       ...form,
-      countryCode: form.country.code,
-      mobile: `${form.country.code}${form.mobile}`,
+      countryCode: form.country.dialCode,
+      mobile: `${form.country.dialCode}${form.mobile}`,
     };
 
     const res = await registerAction(payload);
@@ -111,7 +101,7 @@ export default function RegisterClient() {
     router.push("/login");
   }
 
-  /* STYLE TUNING */
+  /* STYLE TUNING (UNCHANGED) */
   const inputClass =
     "w-full px-3 py-2 rounded-md bg-white text-sm text-black focus:outline-none focus:ring-1 focus:ring-orange-500";
   const labelClass =
@@ -160,17 +150,17 @@ export default function RegisterClient() {
           />
         </div>
 
-        {/* Country */}
+        {/* 🌍 Country Select (UI UNCHANGED) */}
         <div>
           <label className={labelClass}>Select Country</label>
           <div className="relative">
             <select
-              value={form.country.code}
+              value={form.country.dialCode}
               onChange={handleCountryChange}
               className="w-full appearance-none px-3 py-2 pl-11 rounded-md bg-white text-sm text-black cursor-pointer"
             >
               {COUNTRIES.map((c) => (
-                <option key={c.code} value={c.code}>
+                <option key={c.code} value={c.dialCode}>
                   {c.name}
                 </option>
               ))}
@@ -189,7 +179,7 @@ export default function RegisterClient() {
           <label className={labelClass}>Mobile Number</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-700">
-              {form.country.code}
+              {form.country.dialCode}
             </span>
             <input
               name="mobile"
