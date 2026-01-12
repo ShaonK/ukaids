@@ -14,7 +14,6 @@ model User {
   referralCode                String                      @unique
   mobile                      String                      @unique
   email                       String?                     @unique
-  avatar                      String?
   password                    String
   txnPassword                 String
   referredBy                  Int?
@@ -22,6 +21,8 @@ model User {
   isBlocked                   Boolean                     @default(false)
   isSuspended                 Boolean                     @default(false)
   createdAt                   DateTime                    @default(now())
+  avatar                      String?
+  adminAuditLogs              AdminAuditLog[]
   approvedDeposits            ApprovedDeposit[]
   approvedWithdraws           ApprovedWithdraw[]
   receivedTransfers           BalanceTransfer[]           @relation("Receiver")
@@ -46,7 +47,6 @@ model User {
   withdrawAddress             WithdrawAddress?            @relation("UserWithdrawAddress")
   withdrawRequests            WithdrawRequest[]
   roiEarnings                 RoiEarning[]
-  adminAuditLogs              AdminAuditLog[]
 
   @@index([referredBy])
 }
@@ -99,14 +99,8 @@ model Package {
   position         Int
   isActive         Boolean           @default(false)
   createdAt        DateTime          @default(now())
-  userPackages     UserPackage[]
   balanceTransfers BalanceTransfer[]
-}
-
-enum PackageStatus {
-  ACTIVE
-  UPCOMING
-  DISABLED
+  userPackages     UserPackage[]
 }
 
 model UserPackage {
@@ -155,25 +149,24 @@ model DepositHistory {
 }
 
 model Admin {
-  id        Int              @id @default(autoincrement())
-  username  String           @unique
-  password  String
-  createdAt DateTime         @default(now())
-  processed DepositHistory[] @relation("AdminProcessRelation")
+  id             Int                  @id @default(autoincrement())
+  username       String               @unique
+  password       String
+  createdAt      DateTime             @default(now())
   passwordResets AdminPasswordReset[]
+  processed      DepositHistory[]     @relation("AdminProcessRelation")
 }
+
 model AdminPasswordReset {
   id        Int      @id @default(autoincrement())
   adminId   Int
   token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  admin Admin @relation(fields: [adminId], references: [id])
+  expiresAt DateTime @db.Timestamp(6)
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([adminId])
 }
-
 
 model AdminAuditLog {
   id         Int      @id @default(autoincrement())
@@ -184,8 +177,7 @@ model AdminAuditLog {
   oldValue   Json?
   newValue   Json?
   createdAt  DateTime @default(now())
-
-  admin User @relation(fields: [adminId], references: [id])
+  admin      User     @relation(fields: [adminId], references: [id])
 }
 
 model ApprovedDeposit {
@@ -351,4 +343,10 @@ model ReferralCommissionHistory {
   deposit    Deposit? @relation(fields: [depositId], references: [id])
   fromUser   User     @relation("ReferralFromUser", fields: [fromUserId], references: [id])
   user       User     @relation("ReferralToUser", fields: [userId], references: [id])
+}
+
+enum PackageStatus {
+  ACTIVE
+  UPCOMING
+  DISABLED
 }

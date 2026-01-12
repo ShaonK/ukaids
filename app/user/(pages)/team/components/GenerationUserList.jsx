@@ -17,10 +17,10 @@ export default function GenerationUserList({ users, generation }) {
               u.isActive ? "bg-[#1a1a1a]" : "bg-red-900/20"
             }`}
           >
-            <p className="font-semibold">{u.username}</p>
-            <p className="text-sm">ROI: ${u.roiIncome}</p>
-            <p className="text-sm">Referral: ${u.referralIncome}</p>
-            <p className="text-sm">Level: ${u.levelIncome}</p>
+            {/* ✅ ONLY USERNAME */}
+            <p className="font-semibold text-white">
+              {u.username}
+            </p>
           </div>
         ))}
       </div>

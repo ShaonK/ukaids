@@ -23,11 +23,17 @@ export default function DashboardClient() {
         donationWallet: 0,
     });
 
+    const [lifetimeIncome, setLifetimeIncome] = useState({
+        roi: 0,
+        level: 0,
+        referral: 0,
+    });
+
     const [packages, setPackages] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // =========================
-    // Load wallet
+    // Load wallet (CURRENT BALANCE)
     // =========================
     useEffect(() => {
         let mounted = true;
@@ -41,20 +47,20 @@ export default function DashboardClient() {
 
                 const data = await res.json();
 
-                if (mounted) {
+                if (mounted && data?.wallet) {
                     setWallet({
-                        mainWallet: Number(data?.wallet?.mainWallet) || 0,
-                        depositWallet: Number(data?.wallet?.depositWallet) || 0,
-                        roiWallet: Number(data?.wallet?.roiWallet) || 0,
-                        referralWallet: Number(data?.wallet?.referralWallet) || 0,
-                        levelWallet: Number(data?.wallet?.levelWallet) || 0,
-                        returnWallet: Number(data?.wallet?.returnWallet) || 0,
-                        salaryWallet: Number(data?.wallet?.salaryWallet) || 0,
-                        donationWallet: Number(data?.wallet?.donationWallet) || 0,
+                        mainWallet: Number(data.wallet.mainWallet || 0),
+                        depositWallet: Number(data.wallet.depositWallet || 0),
+                        roiWallet: Number(data.wallet.roiWallet || 0),
+                        referralWallet: Number(data.wallet.referralWallet || 0),
+                        levelWallet: Number(data.wallet.levelWallet || 0),
+                        returnWallet: Number(data.wallet.returnWallet || 0),
+                        salaryWallet: Number(data.wallet.salaryWallet || 0),
+                        donationWallet: Number(data.wallet.donationWallet || 0),
                     });
                 }
             } catch (err) {
-                console.error("Failed to fetch wallet:", err);
+                console.error("Failed to load wallet:", err);
             } finally {
                 if (mounted) setLoading(false);
             }
@@ -67,7 +73,32 @@ export default function DashboardClient() {
     }, []);
 
     // =========================
-    // Load packages (NEW)
+    // Load LIFETIME INCOME (🔥 NEW)
+    // =========================
+    useEffect(() => {
+        async function loadLifetimeIncome() {
+            try {
+                const res = await fetch("/api/user/income-summary", {
+                    cache: "no-store",
+                });
+                if (!res.ok) return;
+
+                const data = await res.json();
+                setLifetimeIncome({
+                    roi: Number(data.roi || 0),
+                    level: Number(data.level || 0),
+                    referral: Number(data.referral || 0),
+                });
+            } catch (err) {
+                console.error("Failed to load lifetime income:", err);
+            }
+        }
+
+        loadLifetimeIncome();
+    }, []);
+
+    // =========================
+    // Load packages
     // =========================
     useEffect(() => {
         async function loadPackages() {
@@ -86,17 +117,18 @@ export default function DashboardClient() {
     }, []);
 
     // =========================
-    // Format
+    // Helpers
     // =========================
     const fmt = (n) => Number(n).toFixed(2) + " USD";
 
-    // =========================
-    // TOTAL INCOME (ONLY)
-    // ROI + LEVEL + REFERRAL
-    // =========================
+    // 🔥 LIFETIME TOTAL (NEVER DECREASES)
     const totalIncome = useMemo(() => {
-        return wallet.roiWallet + wallet.levelWallet + wallet.referralWallet;
-    }, [wallet.roiWallet, wallet.levelWallet, wallet.referralWallet]);
+        return (
+            lifetimeIncome.roi +
+            lifetimeIncome.level +
+            lifetimeIncome.referral
+        );
+    }, [lifetimeIncome]);
 
     if (loading) {
         return (
@@ -122,47 +154,18 @@ export default function DashboardClient() {
 
             {/* SUMMARY CARDS */}
             <div className="relative z-10 pt-4 space-y-4">
-                <UserAmountSummaryCard
-                    title="Account Balance"
-                    amount={fmt(wallet.mainWallet)}
-                />
+                <UserAmountSummaryCard title="Account Balance" amount={fmt(wallet.mainWallet)} />
+                <UserAmountSummaryCard title="Deposit Balance" amount={fmt(wallet.depositWallet)} />
+                <UserAmountSummaryCard title="ROI Wallet" amount={fmt(wallet.roiWallet)} />
+                <UserAmountSummaryCard title="Referral Wallet" amount={fmt(wallet.referralWallet)} />
+                <UserAmountSummaryCard title="Level Wallet" amount={fmt(wallet.levelWallet)} />
+                <UserAmountSummaryCard title="Salary Wallet" amount={fmt(wallet.salaryWallet)} />
+                <UserAmountSummaryCard title="Donation Wallet" amount={fmt(wallet.donationWallet)} />
+                <UserAmountSummaryCard title="Return Wallet" amount={fmt(wallet.returnWallet)} />
 
+                {/* 🔥 IMPORTANT CARD */}
                 <UserAmountSummaryCard
-                    title="Deposit Balance"
-                    amount={fmt(wallet.depositWallet)}
-                />
-
-                <UserAmountSummaryCard
-                    title="ROI Income"
-                    amount={fmt(wallet.roiWallet)}
-                />
-
-                <UserAmountSummaryCard
-                    title="Referral Income"
-                    amount={fmt(wallet.referralWallet)}
-                />
-
-                <UserAmountSummaryCard
-                    title="Level Income"
-                    amount={fmt(wallet.levelWallet)}
-                />
-               
-                <UserAmountSummaryCard
-                    title="Salary Wallet"
-                    amount={fmt(wallet.salaryWallet)}
-                />
-
-                <UserAmountSummaryCard
-                    title="Donation Wallet"
-                    amount={fmt(wallet.donationWallet)}
-                />
-
-                <UserAmountSummaryCard
-                    title="Return Wallet"
-                    amount={fmt(wallet.returnWallet)}
-                />
-                 <UserAmountSummaryCard
-                    title="Total Income"
+                    title="Total Income (Lifetime)"
                     amount={fmt(totalIncome)}
                 />
             </div>
@@ -174,7 +177,7 @@ export default function DashboardClient() {
             <IncomeOptions />
             <FeatherImage />
 
-            {/* 🔥 TASK CARDS (ONLY THIS PART CHANGED) */}
+            {/* TASK CARDS */}
             <div className="pb-6">
                 {packages.map((pkg) => (
                     <TaskCard key={pkg.id} pkg={pkg} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 
 const TABS = [
   { key: "account", label: "Account" },
@@ -20,11 +21,22 @@ function normalize(row) {
 }
 
 export default function WalletHistoryClient() {
-  const [tab, setTab] = useState("account");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const initialTab = searchParams.get("tab") || "account";
+
+  const [tab, setTab] = useState(initialTab);
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+
+  function changeTab(key) {
+    setTab(key);
+    setPage(1);
+    router.replace(`/user/wallet/history?tab=${key}`);
+  }
 
   async function load() {
     setLoading(true);
@@ -52,10 +64,6 @@ export default function WalletHistoryClient() {
   }
 
   useEffect(() => {
-    setPage(1);
-  }, [tab]);
-
-  useEffect(() => {
     load();
   }, [tab, page]);
 
@@ -70,12 +78,11 @@ export default function WalletHistoryClient() {
         {TABS.map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-4 py-2 rounded text-sm whitespace-nowrap ${
-              tab === t.key
+            onClick={() => changeTab(t.key)}
+            className={`px-4 py-2 rounded text-sm whitespace-nowrap ${tab === t.key
                 ? "bg-yellow-500 text-black"
                 : "bg-[#1A1A1A] text-gray-300"
-            }`}
+              }`}
           >
             {t.label}
           </button>
@@ -113,11 +120,10 @@ export default function WalletHistoryClient() {
                     {r.from}
                   </td>
                   <td
-                    className={`p-2 text-right ${
-                      r.amount >= 0
+                    className={`p-2 text-right ${r.amount >= 0
                         ? "text-green-400"
                         : "text-red-400"
-                    }`}
+                      }`}
                   >
                     {r.amount.toFixed(2)}
                   </td>
