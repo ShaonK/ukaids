@@ -17,20 +17,23 @@ export default function TransferClient() {
     setMessage(null);
 
     const cleanReceiver = receiver.trim();
+    const transferAmount = Number(Number(amount).toFixed(6));
 
-    if (!cleanReceiver || !amount) {
-      setError("Receiver and amount are required");
+    // 🔒 Validation
+    if (!cleanReceiver) {
+      setError("Receiver username or ID is required");
       return;
     }
 
-    if (Number(amount) <= 0) {
+    if (!transferAmount || transferAmount <= 0) {
       setError("Amount must be greater than zero");
       return;
     }
 
     const confirmed = window.confirm(
-      `Are you sure you want to transfer $${amount} to "${cleanReceiver}"?\n\n⚠️ This action is instant and irreversible.`
+      `Are you sure you want to transfer $${transferAmount} to "${cleanReceiver}"?\n\n⚠️ This action is instant and irreversible.`
     );
+
     if (!confirmed) return;
 
     setLoading(true);
@@ -41,7 +44,7 @@ export default function TransferClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           receiver: cleanReceiver,
-          amount: Number(amount),
+          amount: transferAmount,
         }),
       });
 
@@ -55,6 +58,7 @@ export default function TransferClient() {
       setReceiver("");
       setAmount("");
 
+      // 🔁 redirect to history
       setTimeout(() => {
         router.push("/user/transfer/history");
       }, 1200);
@@ -82,7 +86,7 @@ export default function TransferClient() {
           <input
             value={receiver}
             onChange={(e) => setReceiver(e.target.value)}
-            placeholder="e.g. rahim"
+            placeholder="e.g. rahim or 12"
             disabled={loading}
             className="w-full px-3 py-2 rounded-lg bg-black border border-gray-700
             focus:outline-none focus:border-orange-500 disabled:opacity-60"
@@ -96,11 +100,11 @@ export default function TransferClient() {
           </label>
           <input
             type="number"
-            min="1"
-            step="1"
+            min="0.01"
+            step="0.01"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder="100"
+            placeholder="100.00"
             disabled={loading}
             className="w-full px-3 py-2 rounded-lg bg-black border border-gray-700
             focus:outline-none focus:border-orange-500 disabled:opacity-60"
@@ -110,7 +114,8 @@ export default function TransferClient() {
         {/* Info */}
         <div className="text-xs text-yellow-400 bg-black p-2 rounded-md border border-yellow-600/30">
           ⚠️ Transfers are instant and irreversible.<br />
-          ❌ No ROI, bonus, or profit is generated from transfers.
+          ❌ No ROI, bonus, or profit is generated from transfers.<br />
+          💡 Transfers are deducted from your main wallet.
         </div>
 
         {/* Error */}

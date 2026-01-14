@@ -4,6 +4,7 @@ import { debitWallet, creditWallet } from "@/lib/walletService";
 
 export async function POST(req) {
   try {
+    // 🔐 Auth
     const sender = await getUser();
     if (!sender) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -17,8 +18,9 @@ export async function POST(req) {
       );
     }
 
+    // 📥 Input
     const { receiver, amount } = await req.json();
-    const transferAmount = Number(amount);
+    const transferAmount = Number(Number(amount).toFixed(6));
 
     if (!receiver || transferAmount <= 0) {
       return Response.json(
@@ -27,7 +29,7 @@ export async function POST(req) {
       );
     }
 
-    // 🔍 Find receiver
+    // 🔍 Find receiver (username OR id)
     const receiverUser = await prisma.user.findFirst({
       where: {
         OR: [
@@ -35,19 +37,27 @@ export async function POST(req) {
           { id: Number(receiver) || -1 },
         ],
       },
+      select: {
+        id: true,
+        username: true,
+        isBlocked: true,
+        isSuspended: true,
+      },
     });
 
     if (!receiverUser) {
       return Response.json({ error: "Receiver not found" }, { status: 404 });
     }
 
+    // ❌ Self transfer
     if (receiverUser.id === sender.id) {
       return Response.json(
-        { error: "Self transfer not allowed" },
+        { error: "Self transfer is not allowed" },
         { status: 400 }
       );
     }
 
+    // 🔒 Receiver eligibility
     if (receiverUser.isBlocked || receiverUser.isSuspended) {
       return Response.json(
         { error: "Receiver account is not eligible" },
@@ -55,10 +65,10 @@ export async function POST(req) {
       );
     }
 
-    // 🔁 INSTANT TRANSFER (NO ADMIN)
+    // 🔁 ATOMIC TRANSFER
     await prisma.$transaction(async (tx) => {
 
-      // ➖ Debit sender
+      // ➖ Debit sender (ACCOUNT → mainWallet)
       await debitWallet({
         tx,
         userId: sender.id,
@@ -68,7 +78,7 @@ export async function POST(req) {
         note: `Transfer to ${receiverUser.username}`,
       });
 
-      // ➕ Credit receiver
+      // ➕ Credit receiver (ACCOUNT → mainWallet)
       await creditWallet({
         tx,
         userId: receiverUser.id,
@@ -78,14 +88,13 @@ export async function POST(req) {
         note: `Transfer from ${sender.username}`,
       });
 
-      // 📄 Save history as APPROVED
+      // 📄 Save transfer history (APPROVED)
       await tx.balanceTransfer.create({
         data: {
           senderId: sender.id,
           receiverId: receiverUser.id,
           amount: transferAmount,
           status: "APPROVED",
-          packageId: null,
         },
       });
     });
