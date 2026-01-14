@@ -4,6 +4,8 @@ import { getUser } from "@/lib/getUser";
 import { ensureUserActive } from "@/lib/updateUserActiveStatus";
 import { distributeReferralCommission } from "@/lib/referralService";
 
+const BUY_LIMIT = 500;
+
 export async function POST(req) {
   try {
     const user = await getUser();
@@ -13,17 +15,33 @@ export async function POST(req) {
 
     const { packageId } = await req.json();
     if (!packageId) {
-      return NextResponse.json({ error: "Package ID missing" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Package ID missing" },
+        { status: 400 }
+      );
     }
 
     const userId = user.id;
 
-    // 1️⃣ Fetch package
     const pkg = await prisma.package.findUnique({
       where: { id: Number(packageId) },
     });
 
-    if (!pkg || !pkg.isActive) {
+    if (!pkg) {
+      return NextResponse.json(
+        { error: "Package not found" },
+        { status: 404 }
+      );
+    }
+
+    if (Number(pkg.amount) > BUY_LIMIT) {
+      return NextResponse.json(
+        { error: "This package is upgrade-only" },
+        { status: 403 }
+      );
+    }
+
+    if (!pkg.isActive) {
       return NextResponse.json(
         { error: "Package not active yet" },
         { status: 403 }
@@ -32,39 +50,54 @@ export async function POST(req) {
 
     const amount = Number(pkg.amount);
 
-    // 2️⃣ Wallet check
-    const wallet = await prisma.wallet.findUnique({
-      where: { userId },
-    });
-
-    if (!wallet || Number(wallet.mainWallet) < amount) {
-      return NextResponse.json(
-        { error: "Insufficient balance" },
-        { status: 400 }
-      );
-    }
-
-    // 3️⃣ Ensure no active package
-    const activePkg = await prisma.userPackage.findFirst({
-      where: { userId, isActive: true },
-    });
-
-    if (activePkg) {
-      return NextResponse.json(
-        { error: "Active package exists. Upgrade required." },
-        { status: 400 }
-      );
-    }
-
-    // 4️⃣ Transaction
     await prisma.$transaction(async (tx) => {
       await ensureUserActive(tx, userId);
 
+      const wallet = await tx.wallet.findUnique({
+        where: { userId },
+      });
+
+      if (!wallet || Number(wallet.mainWallet) < amount) {
+        throw new Error("Insufficient balance");
+      }
+
+      const accBefore = wallet.mainWallet;
+      const accAfter = accBefore.minus(amount);
+
+      // 🔻 ACCOUNT DEBIT
       await tx.wallet.update({
         where: { userId },
         data: {
           mainWallet: { decrement: amount },
-          depositWallet: amount,
+          depositWallet: { increment: amount },
+        },
+      });
+
+      // ✅ ACCOUNT HISTORY
+      await tx.walletTransaction.create({
+        data: {
+          userId,
+          walletType: "ACCOUNT",
+          direction: "DEBIT",
+          amount,
+          balanceBefore: accBefore,
+          balanceAfter: accAfter,
+          source: "PACKAGE_BUY",
+          note: `Package purchased (${pkg.name})`,
+        },
+      });
+
+      // ✅ DEPOSIT HISTORY
+      await tx.walletTransaction.create({
+        data: {
+          userId,
+          walletType: "DEPOSIT",
+          direction: "CREDIT",
+          amount,
+          balanceBefore: wallet.depositWallet,
+          balanceAfter: wallet.depositWallet.plus(amount),
+          source: "PACKAGE_BUY",
+          note: `Package activated (${pkg.name})`,
         },
       });
 
@@ -87,6 +120,7 @@ export async function POST(req) {
     });
 
     return NextResponse.json({ success: true });
+
   } catch (err) {
     console.error("PACKAGE BUY ERROR:", err);
     return NextResponse.json(

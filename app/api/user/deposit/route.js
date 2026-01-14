@@ -5,6 +5,7 @@ import { ensureUserActive } from "@/lib/updateUserActiveStatus";
 import { distributeReferralCommission } from "@/lib/referralService";
 
 const INITIAL_ROI_PERCENT = 0.02;
+const BUY_LIMIT = 500;
 
 export async function POST(req) {
   try {
@@ -31,17 +32,24 @@ export async function POST(req) {
       return Response.json({ error: "Invalid package" }, { status: 400 });
     }
 
+    // 🔒 BUY LIMIT
+    if (Number(pkg.amount) > BUY_LIMIT) {
+      return Response.json(
+        { error: "This package is upgrade-only" },
+        { status: 403 }
+      );
+    }
+
     const amount = Number(pkg.amount);
 
     await prisma.$transaction(async (tx) => {
-      // 1️⃣ Ensure user active
       await ensureUserActive(tx, userId);
 
       const wallet = await tx.wallet.findUnique({
         where: { userId },
       });
 
-      if (!wallet || wallet.mainWallet < amount) {
+      if (!wallet || Number(wallet.mainWallet) < amount) {
         throw new Error("Insufficient balance");
       }
 
@@ -55,7 +63,7 @@ export async function POST(req) {
 
       const initialRoi = Number((amount * INITIAL_ROI_PERCENT).toFixed(6));
 
-      // 2️⃣ Debit ACCOUNT
+      // 🔻 Debit ACCOUNT
       await debitWallet({
         tx,
         userId,
@@ -65,7 +73,7 @@ export async function POST(req) {
         note: `Package purchase (${pkg.name})`,
       });
 
-      // 3️⃣ Credit DEPOSIT
+      // 🔺 Credit DEPOSIT
       await creditWallet({
         tx,
         userId,
@@ -75,7 +83,7 @@ export async function POST(req) {
         note: `Package activated (${pkg.name})`,
       });
 
-      // 4️⃣ Create active package
+      // 📦 Active package
       await tx.userPackage.create({
         data: {
           userId,
@@ -89,7 +97,7 @@ export async function POST(req) {
         },
       });
 
-      // 5️⃣ Instant ROI
+      // 💰 Initial ROI
       await creditWallet({
         tx,
         userId,
@@ -99,7 +107,6 @@ export async function POST(req) {
         note: `Initial ROI on ${pkg.name}`,
       });
 
-      // 6️⃣ ROI history
       await tx.roiHistory.create({
         data: {
           userId,
@@ -108,7 +115,7 @@ export async function POST(req) {
         },
       });
 
-      // 🔥 7️⃣ Referral commission (10 → 3 → 2)
+      // 🔥 Referral commission
       await distributeReferralCommission({
         tx,
         buyerId: userId,
@@ -123,7 +130,7 @@ export async function POST(req) {
     });
 
   } catch (err) {
-    console.error("PACKAGE DEPOSIT ERROR:", err);
+    console.error("PACKAGE BUY ERROR:", err);
     return Response.json(
       { error: err.message || "Server error" },
       { status: 500 }

@@ -4,6 +4,8 @@ import { getUser } from "@/lib/getUser";
 import { ensureUserActive } from "@/lib/updateUserActiveStatus";
 import { distributeReferralCommission } from "@/lib/referralService";
 
+const BUY_LIMIT = 500;
+
 export async function POST(req) {
   try {
     const user = await getUser();
@@ -13,75 +15,97 @@ export async function POST(req) {
 
     const { packageId } = await req.json();
     if (!packageId) {
-      return NextResponse.json({ error: "Package ID missing" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Package ID missing" },
+        { status: 400 }
+      );
     }
 
     const userId = user.id;
 
-    // 1️⃣ Fetch target package
-    const newPackage = await prisma.package.findUnique({
+    const pkg = await prisma.package.findUnique({
       where: { id: Number(packageId) },
     });
 
-    if (!newPackage || !newPackage.isActive) {
+    if (!pkg) {
+      return NextResponse.json(
+        { error: "Package not found" },
+        { status: 404 }
+      );
+    }
+
+    if (Number(pkg.amount) > BUY_LIMIT) {
+      return NextResponse.json(
+        { error: "This package is upgrade-only" },
+        { status: 403 }
+      );
+    }
+
+    if (!pkg.isActive) {
       return NextResponse.json(
         { error: "Package not active yet" },
         { status: 403 }
       );
     }
 
-    const upgradeAmount = Number(newPackage.amount);
+    const amount = Number(pkg.amount);
 
-    // 2️⃣ Wallet check
-    const wallet = await prisma.wallet.findUnique({
-      where: { userId },
-    });
-
-    if (!wallet || Number(wallet.mainWallet) < upgradeAmount) {
-      return NextResponse.json(
-        { error: "Insufficient balance" },
-        { status: 400 }
-      );
-    }
-
-    // 3️⃣ Transaction
     await prisma.$transaction(async (tx) => {
       await ensureUserActive(tx, userId);
 
-      const activePkg = await tx.userPackage.findFirst({
-        where: { userId, isActive: true },
+      const wallet = await tx.wallet.findUnique({
+        where: { userId },
       });
 
-      if (activePkg) {
-        await tx.wallet.update({
-          where: { userId },
-          data: {
-            returnWallet: { increment: Number(activePkg.amount) },
-          },
-        });
-
-        await tx.userPackage.update({
-          where: { id: activePkg.id },
-          data: {
-            isActive: false,
-            endedAt: new Date(),
-          },
-        });
+      if (!wallet || Number(wallet.mainWallet) < amount) {
+        throw new Error("Insufficient balance");
       }
 
+      const accBefore = wallet.mainWallet;
+      const accAfter = accBefore.minus(amount);
+
+      // 🔻 ACCOUNT DEBIT
       await tx.wallet.update({
         where: { userId },
         data: {
-          mainWallet: { decrement: upgradeAmount },
-          depositWallet: upgradeAmount,
+          mainWallet: { decrement: amount },
+          depositWallet: { increment: amount },
+        },
+      });
+
+      // ✅ ACCOUNT HISTORY
+      await tx.walletTransaction.create({
+        data: {
+          userId,
+          walletType: "ACCOUNT",
+          direction: "DEBIT",
+          amount,
+          balanceBefore: accBefore,
+          balanceAfter: accAfter,
+          source: "PACKAGE_BUY",
+          note: `Package purchased (${pkg.name})`,
+        },
+      });
+
+      // ✅ DEPOSIT HISTORY
+      await tx.walletTransaction.create({
+        data: {
+          userId,
+          walletType: "DEPOSIT",
+          direction: "CREDIT",
+          amount,
+          balanceBefore: wallet.depositWallet,
+          balanceAfter: wallet.depositWallet.plus(amount),
+          source: "PACKAGE_BUY",
+          note: `Package activated (${pkg.name})`,
         },
       });
 
       await tx.userPackage.create({
         data: {
           userId,
-          packageId: newPackage.id,
-          amount: upgradeAmount,
+          packageId: pkg.id,
+          amount,
           isActive: true,
           source: "self",
           startedAt: new Date(),
@@ -91,15 +115,16 @@ export async function POST(req) {
 
     await distributeReferralCommission({
       buyerId: userId,
-      packageAmount: upgradeAmount,
-      source: "PACKAGE_UPGRADE",
+      packageAmount: amount,
+      source: "PACKAGE_BUY",
     });
 
     return NextResponse.json({ success: true });
+
   } catch (err) {
-    console.error("PACKAGE UPGRADE ERROR:", err);
+    console.error("PACKAGE BUY ERROR:", err);
     return NextResponse.json(
-      { error: err.message || "Upgrade failed" },
+      { error: err.message || "Server error" },
       { status: 500 }
     );
   }

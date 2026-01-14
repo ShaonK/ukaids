@@ -17,7 +17,16 @@ export async function GET() {
       email: true,
       mobile: true,
       referralCode: true,
+      avatar: true,
       createdAt: true,
+      userRank: {
+        select: {
+          rank: true,
+          achievedAt: true,
+          salaryStartAt: true,
+          isLifetime: true,
+        },
+      },
     },
   });
 

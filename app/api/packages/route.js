@@ -1,26 +1,23 @@
 import prisma from "@/lib/prisma";
 
+const UPGRADE_LIMIT = 500;
+
 export async function GET() {
   try {
     const packages = await prisma.package.findMany({
-      where: { isActive: true },
-      orderBy: { amount: "asc" },
+      orderBy: { position: "asc" },
     });
 
-    // 🔥 BUSINESS RULE HERE
     const mapped = packages.map((pkg) => {
-      if (Number(pkg.amount) > 500) {
-        return {
-          ...pkg,
-          status: "UPCOMING",
-          isPurchasable: false,
-        };
-      }
+      const isBelowOrEqualLimit = pkg.amount <= UPGRADE_LIMIT;
 
       return {
         ...pkg,
-        status: "ACTIVE",
-        isPurchasable: true,
+
+        // 🔥 USER LOGIC
+        canBuy: isBelowOrEqualLimit && pkg.isActive,
+        canUpgrade: pkg.amount > UPGRADE_LIMIT && pkg.isActive,
+        isUpcoming: pkg.amount > UPGRADE_LIMIT && !pkg.isActive,
       };
     });
 

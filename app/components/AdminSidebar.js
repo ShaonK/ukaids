@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -14,10 +13,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
-  Package2, // ✅ USE THIS (NOT Package)
+  Package2,
+  Star, // ⭐ NEW
 } from "lucide-react";
-
-
 
 export default function AdminSidebar() {
   const path = usePathname();
@@ -42,9 +40,16 @@ export default function AdminSidebar() {
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/users", label: "Users", icon: Users },
 
-    // 🔥 PACKAGE CONTROL
+    // ⭐ VIP RANK
+    {
+      href: "/admin/rank-eligible",
+      label: "Rank Eligible Users",
+      icon: Star,
+    },
+
     { href: "/admin/packages", label: "Packages", icon: Package2 },
     { href: "/admin/audit-logs", label: "Audit Logs", icon: ClipboardList },
+
     { href: "/admin/deposits", label: "Deposits (Pending)", icon: Wallet },
     { href: "/admin/deposits/approved", label: "Approved Deposits", icon: CheckCircle },
     { href: "/admin/deposits/rejected", label: "Rejected Deposits", icon: XCircle },
@@ -93,7 +98,7 @@ export default function AdminSidebar() {
 
               return (
                 <Link
-                  key={`${item.href}-${item.label}`}
+                  key={item.href}
                   href={item.href}
                   className="flex items-center gap-4 py-2 px-2 rounded-lg transition-colors"
                   style={{

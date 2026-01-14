@@ -1,37 +1,75 @@
-export const dynamic = "force-dynamic";
+"use client";
 
-import { getUser } from "@/lib/getUser";
-import ProfileHeader from "./components/ProfileHeader";
-import ProfileAvatar from "./components/ProfileAvatar";
-import ProfileForm from "./components/ProfileForm";
-import ChangePassword from "./components/ChangePassword";
+import { useEffect, useState } from "react";
+import Image from "next/image";
 
-export default async function ProfilePage() {
-  const user = await getUser();
-  if (!user) return null;
+import ProfileRankBadge from "./components/ProfileRankBadge";
+import SalaryStatus from "./components/SalaryStatus";
 
-  // ✅ sanitize user for Client Components
-  const safeUser = {
-    email: user.email,
-    name: user.name ?? "",
-    phone: user.phone ?? "",
-    country: user.country ?? "",
-    username: user.username,
-    avatar: user.avatar ?? null,
-  };
+export default function ProfilePage() {
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    async function loadProfile() {
+      const res = await fetch("/api/user/profile", {
+        cache: "no-store",
+      });
+      const data = await res.json();
+      setProfile(data);
+    }
+    loadProfile();
+  }, []);
+
+  if (!profile) {
+    return <div className="text-center py-20 text-gray-400">Loading...</div>;
+  }
 
   return (
-    <div className="w-[360px] mx-auto min-h-screen bg-[#121212] text-white px-4 pb-10">
-      <ProfileHeader />
+    <div className="mx-auto w-[360px] min-h-screen bg-[#121212] text-white p-4">
+      <div className="bg-[#111] rounded-xl p-4 border border-gray-700">
+        {/* AVATAR */}
+        <div className="flex justify-center relative">
+          <div className="relative">
+            <div className="p-[3px] rounded-full bg-gradient-to-r from-orange-500 to-blue-500">
+              <Image
+                src={profile.avatar || "/useravater.png"}
+                alt="avatar"
+                width={96}
+                height={96}
+                className="rounded-full bg-black"
+              />
+            </div>
 
-      <ProfileAvatar
-        avatar={safeUser.avatar}
-        username={safeUser.username}
-      />
+            <ProfileRankBadge rank={profile.userRank?.rank} />
+          </div>
+        </div>
 
-      <ProfileForm user={safeUser} />
+        {/* INFO */}
+        <div className="text-center mt-3">
+          <h2 className="font-semibold text-lg">{profile.fullname}</h2>
+          <p className="text-sm text-gray-400">@{profile.username}</p>
 
-      <ChangePassword />
+          {profile.userRank && (
+            <>
+              <p className="text-sm text-orange-400 mt-2">
+                {profile.userRank.rank.replace("_", " ")}
+                {profile.userRank.isLifetime && " • Lifetime"}
+              </p>
+              <SalaryStatus rank={profile.userRank} />
+            </>
+          )}
+        </div>
+
+        {/* META */}
+        <div className="mt-4 text-xs text-gray-400 space-y-1">
+          <p>Email: {profile.email || "N/A"}</p>
+          <p>Mobile: {profile.mobile}</p>
+          <p>Referral Code: {profile.referralCode}</p>
+          <p>
+            Joined: {new Date(profile.createdAt).toLocaleDateString()}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

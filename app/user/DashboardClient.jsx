@@ -12,177 +12,180 @@ import FeatherImage from "./components/FeatherImage";
 import TaskCard from "./components/TaskCard";
 
 export default function DashboardClient() {
-    const [wallet, setWallet] = useState({
-        mainWallet: 0,
-        depositWallet: 0,
-        roiWallet: 0,
-        referralWallet: 0,
-        levelWallet: 0,
-        returnWallet: 0,
-        salaryWallet: 0,
-        donationWallet: 0,
-    });
+  const [wallet, setWallet] = useState({
+    mainWallet: 0,
+    depositWallet: 0,
+    roiWallet: 0,
+    referralWallet: 0,
+    levelWallet: 0,
+    returnWallet: 0,
+    salaryWallet: 0,
+    donationWallet: 0,
+  });
 
-    const [lifetimeIncome, setLifetimeIncome] = useState({
-        roi: 0,
-        level: 0,
-        referral: 0,
-    });
+  const [lifetimeIncome, setLifetimeIncome] = useState({
+    roi: 0,
+    level: 0,
+    referral: 0,
+  });
 
-    const [packages, setPackages] = useState([]);
-    const [loading, setLoading] = useState(true);
+  const [packages, setPackages] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-    // =========================
-    // Load wallet (CURRENT BALANCE)
-    // =========================
-    useEffect(() => {
-        let mounted = true;
+  /* =========================
+     LOAD WALLET
+  ========================= */
+  useEffect(() => {
+    let mounted = true;
 
-        async function loadWallet() {
-            try {
-                const res = await fetch("/api/user/wallet", {
-                    cache: "no-store",
-                });
-                if (!res.ok) return;
+    async function loadWallet() {
+      try {
+        const res = await fetch("/api/user/wallet", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
 
-                const data = await res.json();
-
-                if (mounted && data?.wallet) {
-                    setWallet({
-                        mainWallet: Number(data.wallet.mainWallet || 0),
-                        depositWallet: Number(data.wallet.depositWallet || 0),
-                        roiWallet: Number(data.wallet.roiWallet || 0),
-                        referralWallet: Number(data.wallet.referralWallet || 0),
-                        levelWallet: Number(data.wallet.levelWallet || 0),
-                        returnWallet: Number(data.wallet.returnWallet || 0),
-                        salaryWallet: Number(data.wallet.salaryWallet || 0),
-                        donationWallet: Number(data.wallet.donationWallet || 0),
-                    });
-                }
-            } catch (err) {
-                console.error("Failed to load wallet:", err);
-            } finally {
-                if (mounted) setLoading(false);
-            }
+        if (mounted && data?.wallet) {
+          setWallet({
+            mainWallet: Number(data.wallet.mainWallet || 0),
+            depositWallet: Number(data.wallet.depositWallet || 0),
+            roiWallet: Number(data.wallet.roiWallet || 0),
+            referralWallet: Number(data.wallet.referralWallet || 0),
+            levelWallet: Number(data.wallet.levelWallet || 0),
+            returnWallet: Number(data.wallet.returnWallet || 0),
+            salaryWallet: Number(data.wallet.salaryWallet || 0),
+            donationWallet: Number(data.wallet.donationWallet || 0),
+          });
         }
-
-        loadWallet();
-        return () => {
-            mounted = false;
-        };
-    }, []);
-
-    // =========================
-    // Load LIFETIME INCOME (🔥 NEW)
-    // =========================
-    useEffect(() => {
-        async function loadLifetimeIncome() {
-            try {
-                const res = await fetch("/api/user/income-summary", {
-                    cache: "no-store",
-                });
-                if (!res.ok) return;
-
-                const data = await res.json();
-                setLifetimeIncome({
-                    roi: Number(data.roi || 0),
-                    level: Number(data.level || 0),
-                    referral: Number(data.referral || 0),
-                });
-            } catch (err) {
-                console.error("Failed to load lifetime income:", err);
-            }
-        }
-
-        loadLifetimeIncome();
-    }, []);
-
-    // =========================
-    // Load packages
-    // =========================
-    useEffect(() => {
-        async function loadPackages() {
-            try {
-                const res = await fetch("/api/packages", {
-                    cache: "no-store",
-                });
-                const data = await res.json();
-                setPackages(Array.isArray(data) ? data : []);
-            } catch (err) {
-                console.error("Failed to load packages:", err);
-            }
-        }
-
-        loadPackages();
-    }, []);
-
-    // =========================
-    // Helpers
-    // =========================
-    const fmt = (n) => Number(n).toFixed(2) + " USD";
-
-    // 🔥 LIFETIME TOTAL (NEVER DECREASES)
-    const totalIncome = useMemo(() => {
-        return (
-            lifetimeIncome.roi +
-            lifetimeIncome.level +
-            lifetimeIncome.referral
-        );
-    }, [lifetimeIncome]);
-
-    if (loading) {
-        return (
-            <div className="text-center text-gray-400 py-20">
-                Loading dashboard...
-            </div>
-        );
+      } catch (err) {
+        console.error("Wallet load error:", err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     }
 
+    loadWallet();
+    return () => (mounted = false);
+  }, []);
+
+  /* =========================
+     LOAD LIFETIME INCOME
+  ========================= */
+  useEffect(() => {
+    async function loadIncome() {
+      try {
+        const res = await fetch("/api/user/income-summary", {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setLifetimeIncome({
+          roi: Number(data.roi || 0),
+          level: Number(data.level || 0),
+          referral: Number(data.referral || 0),
+        });
+      } catch (err) {
+        console.error("Income load error:", err);
+      }
+    }
+    loadIncome();
+  }, []);
+
+  /* =========================
+     LOAD PACKAGES
+  ========================= */
+  useEffect(() => {
+    async function loadPackages() {
+      try {
+        const res = await fetch("/api/packages", { cache: "no-store" });
+        const data = await res.json();
+        setPackages(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Package load error:", err);
+      }
+    }
+    loadPackages();
+  }, []);
+
+  const fmt = (n) => Number(n).toFixed(2) + " USD";
+
+  const totalIncome = useMemo(() => {
+    return lifetimeIncome.roi + lifetimeIncome.level + lifetimeIncome.referral;
+  }, [lifetimeIncome]);
+
+  if (loading) {
     return (
-        <div className="relative mx-auto w-[360px] min-h-screen bg-[#121212]">
-            {/* BACKGROUND */}
-            <div className="absolute inset-0 h-[350px] overflow-hidden z-0">
-                <Image
-                    src="/user-d-hero-bg.png"
-                    alt="Dashboard BG"
-                    fill
-                    className="object-cover"
-                    priority
-                />
-                <div className="absolute inset-0 bg-black/80" />
-            </div>
-
-            {/* SUMMARY CARDS */}
-            <div className="relative z-10 pt-4 space-y-4">
-                <UserAmountSummaryCard title="Account Balance" amount={fmt(wallet.mainWallet)} />
-                <UserAmountSummaryCard title="Deposit Balance" amount={fmt(wallet.depositWallet)} />
-                <UserAmountSummaryCard title="ROI Wallet" amount={fmt(wallet.roiWallet)} />
-                <UserAmountSummaryCard title="Referral Wallet" amount={fmt(wallet.referralWallet)} />
-                <UserAmountSummaryCard title="Level Wallet" amount={fmt(wallet.levelWallet)} />
-                <UserAmountSummaryCard title="Salary Wallet" amount={fmt(wallet.salaryWallet)} />
-                <UserAmountSummaryCard title="Donation Wallet" amount={fmt(wallet.donationWallet)} />
-                <UserAmountSummaryCard title="Return Wallet" amount={fmt(wallet.returnWallet)} />
-
-                {/* 🔥 IMPORTANT CARD */}
-                <UserAmountSummaryCard
-                    title="Total Income (Lifetime)"
-                    amount={fmt(totalIncome)}
-                />
-            </div>
-
-            {/* OTHER SECTIONS */}
-            <SpeakerMessage />
-            <QuickActions />
-            <InviteButton />
-            <IncomeOptions />
-            <FeatherImage />
-
-            {/* TASK CARDS */}
-            <div className="pb-6">
-                {packages.map((pkg) => (
-                    <TaskCard key={pkg.id} pkg={pkg} />
-                ))}
-            </div>
-        </div>
+      <div className="text-center text-gray-400 py-20">
+        Loading dashboard...
+      </div>
     );
+  }
+
+  return (
+    <div className="relative mx-auto w-[360px] min-h-screen bg-[#121212]">
+      {/* BACKGROUND */}
+      <div className="absolute inset-0 h-[350px] z-0">
+        <Image
+          src="/user-d-hero-bg.png"
+          alt="Dashboard BG"
+          fill
+          className="object-cover"
+          priority
+        />
+        <div className="absolute inset-0 bg-black/80" />
+      </div>
+
+      {/* WALLET CARDS */}
+      <div className="relative z-10 pt-6 space-y-4">
+        <UserAmountSummaryCard
+          title="Account Balance"
+          amount={fmt(wallet.mainWallet)}
+        />
+        <UserAmountSummaryCard
+          title="Deposit Balance"
+          amount={fmt(wallet.depositWallet)}
+        />
+        <UserAmountSummaryCard
+          title="ROI Wallet"
+          amount={fmt(wallet.roiWallet)}
+        />
+        <UserAmountSummaryCard
+          title="Referral Wallet"
+          amount={fmt(wallet.referralWallet)}
+        />
+        <UserAmountSummaryCard
+          title="Level Wallet"
+          amount={fmt(wallet.levelWallet)}
+        />
+        <UserAmountSummaryCard
+          title="Salary Wallet"
+          amount={fmt(wallet.salaryWallet)}
+        />
+        <UserAmountSummaryCard
+          title="Donation Wallet"
+          amount={fmt(wallet.donationWallet)}
+        />
+        <UserAmountSummaryCard
+          title="Return Wallet"
+          amount={fmt(wallet.returnWallet)}
+        />
+        <UserAmountSummaryCard
+          title="Total Income (Lifetime)"
+          amount={fmt(totalIncome)}
+        />
+      </div>
+
+      {/* OTHER SECTIONS */}
+      <SpeakerMessage />
+      <QuickActions />
+      <InviteButton />
+      <IncomeOptions />
+      <FeatherImage />
+
+      <div className="pb-6">
+        {packages.map((pkg) => (
+          <TaskCard key={pkg.id} pkg={pkg} />
+        ))}
+      </div>
+    </div>
+  );
 }

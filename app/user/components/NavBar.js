@@ -2,59 +2,51 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { jwtDecode } from "jwt-decode";
 
 export default function NavBar() {
-  const [username, setUsername] = useState("");
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const token = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("token="))
-      ?.split("=")[1];
-
-    if (token) {
-      const decoded = jwtDecode(token);
-      setUsername(decoded.username);
+    async function loadMe() {
+      try {
+        const res = await fetch("/api/user/me", { cache: "no-store" });
+        const data = await res.json();
+        setUser(data.user);
+      } catch (err) {
+        console.error("Navbar load error", err);
+      }
     }
+
+    loadMe();
   }, []);
 
   return (
     <div
       className="
         sticky top-0 z-50
-        w-full h-[34px] flex items-center justify-between px-6
+        w-full h-[42px] flex items-center justify-between px-6
         bg-gradient-to-r from-[#121212] via-[rgba(69,46,21,0.5)] to-[#121212]
       "
     >
       {/* Logo */}
       <Image src="/logo.png" alt="Logo" width={110} height={30} />
 
-      {/* Username Box */}
+      {/* User Box (NO RANK, NO AVATAR) */}
       <div className="relative mr-10">
         <div
           className="p-[1.5px] rounded-[6px]"
           style={{
-            width: "118px",
-            height: "26px",
+            width: "150px",
             background: "linear-gradient(90deg, #3B82F6, #C9771E)",
           }}
         >
           <div
-            className="w-full h-full flex items-center px-3 rounded-[6px]"
+            className="w-full px-3 py-1 rounded-[6px] flex items-center"
             style={{ background: "#121212" }}
           >
-            <span className="text-[14px] font-medium text-white flex-1">
-              {username || "Loading..."}
-            </span>
-
-            <Image
-              src="/useravater.png"
-              alt="avatar"
-              width={11}
-              height={11}
-              className="ml-2"
-            />
+            <p className="text-[13px] font-medium text-white leading-4 truncate">
+              {user?.username || "Loading..."}
+            </p>
           </div>
         </div>
       </div>

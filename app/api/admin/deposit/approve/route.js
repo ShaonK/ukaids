@@ -1,12 +1,12 @@
-// app/api/admin/deposit/approve/route.js
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { creditWallet } from "@/lib/walletService";
 
 export async function POST(req) {
   try {
     const body = await req.json();
-
     const depositId = body.depositId ?? body.id;
+
     if (!depositId) {
       return NextResponse.json(
         { error: "Deposit ID missing" },
@@ -14,7 +14,6 @@ export async function POST(req) {
       );
     }
 
-    // 🔎 Load deposit
     const deposit = await prisma.deposit.findUnique({
       where: { id: Number(depositId) },
     });
@@ -33,54 +32,28 @@ export async function POST(req) {
       );
     }
 
-    // 🔐 TRANSACTION
     await prisma.$transaction(async (tx) => {
-      // 1️⃣ Load wallet
-      const wallet = await tx.wallet.findUnique({
-        where: { userId: deposit.userId },
-      });
-
-      if (!wallet) {
-        throw new Error("Wallet not found for user");
-      }
-
-      const balanceBefore = wallet.mainWallet;
-      const balanceAfter = balanceBefore.plus(deposit.amount);
-
-      // 2️⃣ Approve deposit
+      // 1️⃣ mark approved
       await tx.deposit.update({
         where: { id: deposit.id },
         data: { status: "approved" },
       });
 
-      // 3️⃣ Update wallet balance
-      await tx.wallet.update({
-        where: { userId: deposit.userId },
-        data: {
-          mainWallet: { increment: deposit.amount },
-        },
-      });
-
-      // 4️⃣ Wallet history (✅ schema-correct)
-      await tx.walletTransaction.create({
-        data: {
-          userId: deposit.userId,
-          walletType: "MAIN",
-          direction: "CREDIT",
-          amount: deposit.amount,
-          balanceBefore,
-          balanceAfter,
-          source: "DEPOSIT_APPROVED",
-          referenceId: deposit.id,
-          note: "Deposit approved by admin",
-        },
+      // 2️⃣ credit wallet SAFELY (NO precision loss)
+      await creditWallet({
+        tx,
+        userId: deposit.userId,
+        walletType: "ACCOUNT", // ✅ matches history API
+        amount: deposit.amount, // ❌ NO Number()
+        source: "DEPOSIT_APPROVED",
+        referenceId: deposit.id,
+        note: "Deposit approved by admin",
       });
     });
 
     return NextResponse.json({
       success: true,
       message: "Deposit approved successfully",
-      id: depositId,
     });
 
   } catch (err) {

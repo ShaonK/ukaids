@@ -66,12 +66,30 @@ export default async function registerAction(form) {
 
     /* --------------------
        REFERRAL VALIDATION
+       (referralCode OR username)
     -------------------- */
     let refUser = null;
 
     if (referral) {
-      refUser = await prisma.user.findUnique({
-        where: { referralCode: referral },
+      const refValue = referral.trim();
+
+      refUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            {
+              referralCode: {
+                equals: refValue,
+                mode: "insensitive",
+              },
+            },
+            {
+              username: {
+                equals: refValue,
+                mode: "insensitive",
+              },
+            },
+          ],
+        },
         select: { id: true },
       });
 
@@ -90,9 +108,9 @@ export default async function registerAction(form) {
       where: {
         OR: [
           { username: username.toLowerCase() },
-          { email: email || undefined },
+          email ? { email } : undefined,
           { mobile },
-        ],
+        ].filter(Boolean),
       },
     });
 
@@ -122,8 +140,8 @@ export default async function registerAction(form) {
           email: email || null,
           mobile,
           password: hashedPassword,
-          txnPassword: hashedTPassword,          // ✅ FIXED
-          referralCode: myReferralCode,           // ✅ REQUIRED
+          txnPassword: hashedTPassword,
+          referralCode: myReferralCode,
           referredBy: refUser?.id || null,
           isActive: false,
           isBlocked: false,
