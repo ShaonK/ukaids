@@ -2,15 +2,13 @@
 
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 /* --------------------
-   REFERRAL CODE GEN
+   STRONG REFERRAL CODE GEN
 -------------------- */
 function generateReferralCode() {
-  return Math.random()
-    .toString(36)
-    .substring(2, 8)
-    .toUpperCase();
+  return crypto.randomBytes(4).toString("hex").toUpperCase();
 }
 
 export default async function registerAction(form) {
@@ -37,10 +35,7 @@ export default async function registerAction(form) {
       !cpassword ||
       !tpassword
     ) {
-      return {
-        success: false,
-        message: "All required fields must be filled",
-      };
+      return { success: false, message: "All required fields must be filled" };
     }
 
     if (password !== cpassword) {
@@ -66,7 +61,7 @@ export default async function registerAction(form) {
 
     /* --------------------
        REFERRAL VALIDATION
-       (referralCode OR username)
+       (ONLY ACTIVE USERS)
     -------------------- */
     let refUser = null;
 
@@ -75,20 +70,13 @@ export default async function registerAction(form) {
 
       refUser = await prisma.user.findFirst({
         where: {
-          OR: [
-            {
-              referralCode: {
-                equals: refValue,
-                mode: "insensitive",
-              },
-            },
-            {
-              username: {
-                equals: refValue,
-                mode: "insensitive",
-              },
-            },
-          ],
+          referralCode: {
+            equals: refValue,
+            mode: "insensitive",
+          },
+          isActive: true,
+          isBlocked: false,
+          isSuspended: false,
         },
         select: { id: true },
       });
@@ -96,7 +84,7 @@ export default async function registerAction(form) {
       if (!refUser) {
         return {
           success: false,
-          message: "Invalid referral code",
+          message: "Invalid or inactive referral code",
         };
       }
     }
@@ -168,7 +156,6 @@ export default async function registerAction(form) {
       success: true,
       message: "Registration successful. Please login.",
     };
-
   } catch (err) {
     console.error("REGISTER ACTION ERROR:", err);
     return {
