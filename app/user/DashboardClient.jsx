@@ -157,11 +157,11 @@ export default function DashboardClient() {
           amount={fmt(wallet.levelWallet)}
         />
         <UserAmountSummaryCard
-          title="Salary Wallet"
+          title="Rank Salary Wallet"
           amount={fmt(wallet.salaryWallet)}
         />
         <UserAmountSummaryCard
-          title="Donation Wallet"
+          title="Gift Wallet"
           amount={fmt(wallet.donationWallet)}
         />
         <UserAmountSummaryCard
