@@ -8,101 +8,91 @@ export async function GET() {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    /**
-     * genMap = {
-     *   1: [{ id, username, isActive, generation: 1 }],
-     *   2: [{ ... , generation: 2 }],
-     *   ...
-     * }
-     */
-    const genMap = {
-      1: [],
-      2: [],
-      3: [],
-      4: [],
-      5: [],
-    };
+    /* -----------------------------
+       1️⃣ BUILD GENERATION TREE
+    ------------------------------*/
+    const generations = {};
+    let currentIds = [rootUser.id];
+    let gen = 1;
 
-    let currentGenIds = [rootUser.id];
-
-    // 🔁 Build generation tree (1 → 5)
-    for (let gen = 1; gen <= 5; gen++) {
-      // যদি আগের generation-এ কেউ না থাকে → পরের সব empty
-      if (!currentGenIds.length) break;
-
+    while (currentIds.length > 0) {
       const users = await prisma.user.findMany({
         where: {
-          referredBy: {
-            in: currentGenIds,
-          },
+          referredBy: { in: currentIds },
         },
         select: {
           id: true,
           username: true,
           isActive: true,
-          referredBy: true,
-          createdAt: true,
         },
       });
 
-      // ✅ Always set generation (even if empty)
-      genMap[gen] = users.map((u) => ({
-        ...u,
-        generation: gen,
-      }));
+      if (!users.length) break;
 
-      // next generation ids
-      currentGenIds = users.map((u) => u.id);
+      generations[gen] = users;
+      currentIds = users.map((u) => u.id);
+      gen++;
     }
 
-    // 🔁 Flatten all generations
-    const allTeam = Object.values(genMap).flat();
+    /* -----------------------------
+       2️⃣ ALL TEAM USER IDS
+    ------------------------------*/
+    const allUsers = Object.values(generations).flat();
+    const userIds = allUsers.map((u) => u.id);
 
-    // 🔁 Wallet incomes (only if users exist)
-    const wallets = allTeam.length
-      ? await prisma.wallet.findMany({
-          where: {
-            userId: { in: allTeam.map((u) => u.id) },
-          },
-        })
-      : [];
+    /* -----------------------------
+       3️⃣ ACTIVE DEPOSITS
+       (STRICT MLM RULE)
+       UserPackage.isActive = true
+    ------------------------------*/
+    const activePackages = await prisma.userPackage.findMany({
+      where: {
+        userId: { in: userIds },
+        isActive: true,
+      },
+      select: {
+        userId: true,
+        amount: true,
+      },
+    });
 
-    // 🔁 Final team data
-    const result = allTeam.map((u) => {
-      const userWallets = wallets.filter(
-        (w) => w.userId === u.id
-      );
+    const depositMap = {};
+    activePackages.forEach((p) => {
+      depositMap[p.userId] = Number(p.amount);
+    });
 
-      return {
-        id: u.id,
-        username: u.username,
-        isActive: u.isActive,
-        generation: u.generation, // ✅ ALWAYS number (1–5)
-        roiIncome: sum(userWallets, "ROI"),
-        referralIncome: sum(userWallets, "REFERRAL"),
-        levelIncome: sum(userWallets, "LEVEL"),
-        totalIncome: sum(userWallets),
-      };
+    /* -----------------------------
+       4️⃣ FORMAT FINAL DATA
+    ------------------------------*/
+    const team = [];
+    let totalTeamDeposit = 0;
+
+    Object.entries(generations).forEach(([generation, users]) => {
+      users.forEach((u) => {
+        const totalDeposit = depositMap[u.id] || 0;
+        totalTeamDeposit += totalDeposit;
+
+        team.push({
+          id: u.id,
+          username: u.username,
+          isActive: u.isActive,
+          generation: Number(generation),
+          totalDeposit, // 🔥 THIS WAS MISSING
+        });
+      });
     });
 
     return Response.json({
-      generations: genMap,        // ✅ USE THIS for counts
-      team: result,               // detailed list
-      totalTeamCount: allTeam.length,
+      team,
+      generations,
+      totalTeamCount: team.length,
+      totalTeamDeposit,
     });
   } catch (err) {
     console.error("TEAM API ERROR:", err);
     return Response.json(
-      { error: "Failed to load team data" },
+      { error: "Failed to load team" },
       { status: 500 }
     );
   }
-}
-
-/* ---------------- HELPERS ---------------- */
-
-function sum(wallets, type) {
-  return wallets
-    .filter((w) => !type || w.type === type)
-    .reduce((a, b) => a + Number(b.amount), 0);
 }

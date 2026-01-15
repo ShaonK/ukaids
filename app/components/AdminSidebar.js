@@ -60,6 +60,8 @@ export default function AdminSidebar() {
 
     { href: "/admin/transfers", label: "Transfers", icon: Wallet },
     { href: "/admin/settings", label: "Settings", icon: Settings },
+    { href: "/admin/wallet-history", label: "Wallet Credit History", icon: ClipboardList },
+
   ];
 
   return (

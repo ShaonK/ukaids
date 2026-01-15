@@ -1,3 +1,5 @@
+import { CheckCircle, XCircle } from "lucide-react";
+
 export default function GenerationUserList({ users, generation }) {
   return (
     <div className="mt-4 px-4">
@@ -10,19 +12,41 @@ export default function GenerationUserList({ users, generation }) {
       )}
 
       <div className="space-y-2">
-        {users.map((u) => (
-          <div
-            key={u.id}
-            className={`p-3 rounded ${
-              u.isActive ? "bg-[#1a1a1a]" : "bg-red-900/20"
-            }`}
-          >
-            {/* ✅ ONLY USERNAME */}
-            <p className="font-semibold text-white">
-              {u.username}
-            </p>
-          </div>
-        ))}
+        {users.map((u) => {
+          const deposit = Number(u.totalDeposit || 0);
+
+          return (
+            <div
+              key={u.id}
+              className="flex justify-between items-center p-3 rounded bg-[#1a1a1a]"
+            >
+              {/* Left */}
+              <div>
+                <p className="font-semibold text-white">
+                  {u.username}
+                </p>
+                <p className="text-xs text-blue-400">
+                  Deposit: {deposit.toFixed(2)}
+                </p>
+              </div>
+
+              {/* Right (Readonly task status) */}
+              <div className="opacity-80">
+                {u.isActive ? (
+                  <CheckCircle
+                    className="text-green-500"
+                    size={20}
+                  />
+                ) : (
+                  <XCircle
+                    className="text-gray-500"
+                    size={20}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

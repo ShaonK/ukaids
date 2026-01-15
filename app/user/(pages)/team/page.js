@@ -9,28 +9,43 @@ import InactiveTeamList from "./components/InactiveTeamList";
 import TeamIncomeGuide from "./components/TeamIncomeGuide";
 
 export default async function TeamPage() {
-  const user = await getUser(); // uses cookies → OK now
+  const user = await getUser();
   if (!user) return null;
 
   const { team, generations, totalTeamCount } =
     await getTeamData(user.id);
 
-  const generationCounts = {
-    1: generations[1].length,
-    2: generations[2].length,
-    3: generations[3].length,
-    4: generations[4].length,
-    5: generations[5].length,
-  };
+  /**
+   * 🔹 SAFE generation counts
+   * - Dynamic generations supported
+   * - No undefined.length error
+   */
+  const generationCounts = Object.fromEntries(
+    Object.entries(generations).map(
+      ([gen, users]) => [gen, users.length]
+    )
+  );
 
   return (
     <div className="w-full px-4 pb-24 text-white">
-      <TeamSummary data={team} totalTeam={totalTeamCount} />
+      {/* 🔹 TEAM SUMMARY */}
+      <TeamSummary
+        data={team}
+        totalTeam={totalTeamCount}
+      />
 
-      <GenerationTabs team={team} counts={generationCounts} />
+      {/* 🔹 GENERATION TABS + USER LIST */}
+      <GenerationTabs
+        team={team}
+        counts={generationCounts}
+      />
 
-      <InactiveTeamList users={team.filter((u) => !u.isActive)} />
+      {/* 🔹 INACTIVE USERS */}
+      <InactiveTeamList
+        users={team.filter((u) => !u.isActive)}
+      />
 
+      {/* 🔹 GUIDE */}
       <TeamIncomeGuide />
     </div>
   );

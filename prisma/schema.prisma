@@ -94,6 +94,10 @@ model WalletTransaction {
   referenceId   Int?
   note          String?
   createdAt     DateTime @default(now())
+  // 🔥 NEW (FOR REVERSE SYSTEM)
+  reversed      Boolean  @default(false)
+  reversedBy    Int?
+  reversedAt    DateTime?
   user          User     @relation(fields: [userId], references: [id])
 }
 
