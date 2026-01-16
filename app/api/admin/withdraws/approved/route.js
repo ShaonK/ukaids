@@ -2,13 +2,8 @@ import prisma from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const list = await prisma.withdraw.findMany({
-      where: {
-        status: "approved",
-      },
-      orderBy: {
-        approvedAt: "desc",
-      },
+    const list = await prisma.approvedWithdraw.findMany({
+      orderBy: { createdAt: "desc" },
       include: {
         user: {
           select: {

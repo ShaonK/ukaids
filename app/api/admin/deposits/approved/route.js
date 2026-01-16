@@ -2,13 +2,8 @@ import prisma from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const list = await prisma.deposit.findMany({
-      where: {
-        status: "approved",
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+    const list = await prisma.approvedDeposit.findMany({
+      orderBy: { createdAt: "desc" },
       include: {
         user: {
           select: {
