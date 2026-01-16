@@ -1,11 +1,17 @@
 import prisma from "@/lib/prisma";
-import { debitWallet } from "@/lib/walletService";
 
 const COMMISSION_RATE = 0.1;
 
 export async function POST(req) {
   try {
     const { id } = await req.json();
+
+    if (!id) {
+      return Response.json(
+        { error: "Withdraw request ID missing" },
+        { status: 400 }
+      );
+    }
 
     await prisma.$transaction(async (tx) => {
       const w = await tx.withdrawRequest.findUnique({
@@ -16,10 +22,15 @@ export async function POST(req) {
         throw new Error("Invalid withdraw request");
       }
 
-      const commission = Number((w.amount * COMMISSION_RATE).toFixed(6));
-      const netAmount = Number((w.amount - commission).toFixed(6));
+      const amount = Number(w.amount);
+      const commission = Number(
+        (amount * COMMISSION_RATE).toFixed(6)
+      );
+      const netAmount = Number(
+        (amount - commission).toFixed(6)
+      );
 
-      // 1️⃣ Update withdraw request
+      // 1️⃣ Update withdraw request status
       await tx.withdrawRequest.update({
         where: { id },
         data: {
@@ -30,7 +41,7 @@ export async function POST(req) {
         },
       });
 
-      // 2️⃣ KEEP existing behavior (do NOT break UI)
+      // 2️⃣ ApprovedWithdraw (UI + reports)
       await tx.approvedWithdraw.create({
         data: {
           userId: w.userId,
@@ -39,7 +50,7 @@ export async function POST(req) {
         },
       });
 
-      // 3️⃣ 🔥 NEW: create Withdraw record (business history)
+      // 3️⃣ Withdraw business history (audit)
       await tx.withdraw.create({
         data: {
           userId: w.userId,
@@ -50,24 +61,19 @@ export async function POST(req) {
         },
       });
 
-      // 4️⃣ 🔥 NEW: debit wallet + ledger entry
-      await debitWallet({
-        tx,
-        userId: w.userId,
-        walletType: "ACCOUNT",
-        amount: netAmount,
-        source: "TRANSFER_OUT",
-        referenceId: w.id,
-        note: "Withdraw approved by admin",
-      });
+      // ❌ NO debitWallet here
+      // Balance was already deducted at request time
     });
 
-    return Response.json({ success: true });
+    return Response.json({
+      success: true,
+      message: "Withdraw approved successfully",
+    });
 
   } catch (err) {
     console.error("WITHDRAW APPROVE ERROR:", err);
     return Response.json(
-      { error: err.message },
+      { error: err.message || "Server error" },
       { status: 500 }
     );
   }

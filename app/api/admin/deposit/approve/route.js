@@ -1,78 +1,73 @@
+import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-
-const COMMISSION_RATE = 0.1;
+import { creditWallet } from "@/lib/walletService";
 
 export async function POST(req) {
   try {
-    const { id } = await req.json();
+    const body = await req.json();
+    const depositId = body.depositId ?? body.id;
 
-    if (!id) {
-      return Response.json(
-        { error: "Withdraw request ID missing" },
+    if (!depositId) {
+      return NextResponse.json(
+        { error: "Deposit ID missing" },
+        { status: 400 }
+      );
+    }
+
+    const deposit = await prisma.deposit.findUnique({
+      where: { id: Number(depositId) },
+    });
+
+    if (!deposit) {
+      return NextResponse.json(
+        { error: "Deposit not found" },
+        { status: 404 }
+      );
+    }
+
+    if (deposit.status === "approved") {
+      return NextResponse.json(
+        { error: "Deposit already approved" },
         { status: 400 }
       );
     }
 
     await prisma.$transaction(async (tx) => {
-      const w = await tx.withdrawRequest.findUnique({
-        where: { id },
+      // 1️⃣ Mark deposit approved
+      await tx.deposit.update({
+        where: { id: deposit.id },
+        data: { status: "approved" },
       });
 
-      if (!w || w.status !== "pending") {
-        throw new Error("Invalid withdraw request");
-      }
-
-      // 🔢 Calculate fee
-      const commission = Number(
-        (Number(w.amount) * COMMISSION_RATE).toFixed(6)
-      );
-      const netAmount = Number(
-        (Number(w.amount) - commission).toFixed(6)
-      );
-
-      // 1️⃣ Update withdraw request
-      await tx.withdrawRequest.update({
-        where: { id },
+      // 2️⃣ Create ApprovedDeposit snapshot ✅
+      await tx.approvedDeposit.create({
         data: {
-          commission,
-          netAmount,
-          status: "approved",
-          approvedAt: new Date(),
+          userId: deposit.userId,
+          amount: deposit.amount,
+          trxId: deposit.trxId,
         },
       });
 
-      // 2️⃣ Approved withdraw snapshot (UI + reports)
-      await tx.approvedWithdraw.create({
-        data: {
-          userId: w.userId,
-          amount: netAmount,
-          walletType: "ACCOUNT",
-        },
+      // 3️⃣ Credit wallet
+      await creditWallet({
+        tx,
+        userId: deposit.userId,
+        walletType: "ACCOUNT",
+        amount: deposit.amount,
+        source: "DEPOSIT_APPROVED",
+        referenceId: deposit.id,
+        note: "Deposit approved by admin",
       });
-
-      // 3️⃣ Business history (for future reporting / audit)
-      await tx.withdraw.create({
-        data: {
-          userId: w.userId,
-          amount: netAmount,
-          walletType: "ACCOUNT",
-          status: "approved",
-          approvedAt: new Date(),
-        },
-      });
-
-      // ❌ NO wallet debit here
-      // Balance was already deducted at request time
     });
 
-    return Response.json({
+    return NextResponse.json({
       success: true,
-      message: "Withdraw approved successfully",
+      message: "Deposit approved successfully",
     });
 
   } catch (err) {
-    console.error("❌ WITHDRAW APPROVE ERROR:", err);
-    return Response.json(
+    console.error("❌ APPROVE ERROR:", err);
+    return NextResponse.json(
       { error: err.message || "Internal server error" },
       { status: 500 }
     );
