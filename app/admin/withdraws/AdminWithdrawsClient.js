@@ -2,9 +2,15 @@
 
 import { useEffect, useState } from "react";
 
+const COMMISSION_RATE = 0.1;
+
 export default function AdminWithdrawsClient() {
     const [withdraws, setWithdraws] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // modal & action state
+    const [selected, setSelected] = useState(null);
+    const [processing, setProcessing] = useState(false);
 
     async function loadWithdraws() {
         try {
@@ -23,14 +29,16 @@ export default function AdminWithdrawsClient() {
         loadWithdraws();
     }, []);
 
-    async function approveWithdraw(id) {
-        if (!confirm("Confirm: Have you sent the USDT via Binance?")) return;
+    async function confirmApprove() {
+        if (!selected) return;
 
         try {
+            setProcessing(true);
+
             const res = await fetch("/api/admin/withdraws/approve", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id }),
+                body: JSON.stringify({ id: selected.id }),
             });
 
             const data = await res.json();
@@ -39,11 +47,14 @@ export default function AdminWithdrawsClient() {
                 return;
             }
 
-            alert("Withdraw approved");
+            // success → close modal & refresh list
+            setSelected(null);
             loadWithdraws();
         } catch (e) {
             console.error("APPROVE ERROR:", e);
             alert("Something went wrong!");
+        } finally {
+            setProcessing(false);
         }
     }
 
@@ -63,7 +74,6 @@ export default function AdminWithdrawsClient() {
                 return;
             }
 
-            alert("Withdraw rejected");
             loadWithdraws();
         } catch (e) {
             console.error("REJECT ERROR:", e);
@@ -109,48 +119,28 @@ export default function AdminWithdrawsClient() {
                                 💰 Amount: <b>${w.amount}</b>
                             </p>
 
-                            {/* ADDRESS */}
-                            <p className="text-sm mt-1">
+                            <p className="text-sm mt-1 break-all">
                                 📋 Address:{" "}
                                 {address ? (
-                                    <span className="text-green-400 break-all">
+                                    <span className="text-green-400">
                                         {address}
                                     </span>
                                 ) : (
-                                    <span className="text-red-400">Not set</span>
+                                    <span className="text-red-400">
+                                        Not set
+                                    </span>
                                 )}
                             </p>
 
-                            {/* NETWORK */}
                             <p className="text-sm mt-1">
                                 🔗 Network:{" "}
-                                {network ? (
-                                    <span className="text-green-400">
-                                        {network}
-                                    </span>
-                                ) : (
-                                    <span className="text-red-400">—</span>
-                                )}
+                                {network ? network : "—"}
                             </p>
 
-                            {/* COPY BUTTON */}
-                            {address && (
-                                <button
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(address);
-                                        alert("Address copied");
-                                    }}
-                                    className="mt-2 text-xs px-3 py-1 rounded bg-gray-700"
-                                >
-                                    Copy Address
-                                </button>
-                            )}
-
-                            {/* ACTIONS */}
                             <div className="flex gap-3 mt-4">
                                 <button
-                                    onClick={() => approveWithdraw(w.id)}
                                     disabled={!address}
+                                    onClick={() => setSelected(w)}
                                     className="px-4 py-2 rounded bg-green-600 disabled:opacity-40"
                                 >
                                     Approve
@@ -173,6 +163,86 @@ export default function AdminWithdrawsClient() {
                     );
                 })}
             </div>
+
+            {/* ================= MODAL ================= */}
+            {selected && (
+                <div className="fixed inset-0 z-50 bg-black/60 overflow-y-auto">
+                    <div className="min-h-screen flex items-center justify-center px-4 py-8">
+                        <div className="bg-white text-black rounded-xl w-full max-w-md p-5 max-h-[90vh] overflow-y-auto">
+                            <h2 className="text-lg font-bold mb-4">
+                                Confirm Withdraw Approval
+                            </h2>
+
+                            <div className="text-sm mb-3">
+                                <p className="font-medium mb-1">
+                                    Address
+                                </p>
+                                <div className="bg-gray-100 p-2 rounded text-xs break-all">
+                                    {
+                                        selected.user
+                                            ?.withdrawAddress?.address
+                                    }
+                                </div>
+                                <button
+                                    onClick={() =>
+                                        navigator.clipboard.writeText(
+                                            selected.user
+                                                ?.withdrawAddress?.address
+                                        )
+                                    }
+                                    className="mt-1 text-xs text-blue-600"
+                                >
+                                    📋 Copy Address
+                                </button>
+                            </div>
+
+                            {(() => {
+                                const amount = Number(selected.amount);
+                                const fee = Number(
+                                    (amount * COMMISSION_RATE).toFixed(6)
+                                );
+                                const net = Number(
+                                    (amount - fee).toFixed(6)
+                                );
+
+                                return (
+                                    <div className="text-sm space-y-1 mb-4">
+                                        <p>
+                                            Requested Amount: ${amount}
+                                        </p>
+                                        <p>
+                                            Withdraw Fee (10%): ${fee}
+                                        </p>
+                                        <p className="font-semibold">
+                                            Final Payable: ${net}
+                                        </p>
+                                    </div>
+                                );
+                            })()}
+
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    onClick={() => setSelected(null)}
+                                    className="px-4 py-2 rounded bg-gray-300"
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    onClick={confirmApprove}
+                                    disabled={processing}
+                                    className="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-40"
+                                >
+                                    {processing
+                                        ? "Processing..."
+                                        : "Confirm & Approve"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* ================= END MODAL ================= */}
         </div>
     );
 }
