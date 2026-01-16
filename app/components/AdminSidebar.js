@@ -39,13 +39,11 @@ export default function AdminSidebar() {
   const links = [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/users", label: "Users", icon: Users },
+    { href: "/admin/reports/weekly", label: "Weekly Report", icon: Users },
 
     // ⭐ VIP RANK
     {
-      href: "/admin/rank-eligible",
-      label: "Rank Eligible Users",
-      icon: Star,
-    },
+      href: "/admin/rank-eligible", label: "Rank Eligible Users", icon: Star },
 
     { href: "/admin/packages", label: "Packages", icon: Package2 },
     { href: "/admin/audit-logs", label: "Audit Logs", icon: ClipboardList },
