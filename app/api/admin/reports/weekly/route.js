@@ -1,99 +1,116 @@
-// app/api/admin/reports/weekly/route.js
 import prisma from "@/lib/prisma";
-
-function getWeekRange() {
-  const now = new Date();
-  const day = now.getDay(); // 0 = Sun
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-
-  const start = new Date(now.setDate(diff));
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  end.setHours(23, 59, 59, 999);
-
-  return { start, end };
-}
 
 export async function GET() {
   try {
-    const { start, end } = getWeekRange();
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
 
-    /* ---------------- DEPOSITS ---------------- */
-    const approvedDeposits = await prisma.approvedDeposit.aggregate({
-      where: { createdAt: { gte: start, lte: end } },
-      _sum: { amount: true },
-      _count: true,
-    });
+    const start = new Date(end);
+    start.setDate(end.getDate() - 6);
+    start.setHours(0, 0, 0, 0);
 
-    const pendingDeposits = await prisma.deposit.count({
-      where: { status: "pending" },
-    });
-
-    /* ---------------- WITHDRAWS ---------------- */
-    const approvedWithdraws = await prisma.approvedWithdraw.aggregate({
-      where: { createdAt: { gte: start, lte: end } },
-      _sum: { amount: true },
-      _count: true,
-    });
-
-    const rejectedWithdraws = await prisma.rejectedWithdraw.aggregate({
-      where: { createdAt: { gte: start, lte: end } },
-      _sum: { amount: true },
-      _count: true,
-    });
-
-    const pendingWithdraws = await prisma.withdrawRequest.count({
-      where: { status: "pending" },
-    });
-
-    const commission = await prisma.withdrawRequest.aggregate({
+    /* ===============================
+       DEPOSITS (DepositHistory)
+    =============================== */
+    const approvedDepositCount = await prisma.depositHistory.count({
       where: {
         status: "approved",
-        approvedAt: { gte: start, lte: end },
+        createdAt: { gte: start, lte: end },
       },
-      _sum: { commission: true },
     });
 
-    const netFlow =
-      Number(approvedDeposits._sum.amount || 0) -
-      Number(approvedWithdraws._sum.amount || 0);
+    const approvedDepositSum = await prisma.depositHistory.aggregate({
+      where: {
+        status: "approved",
+        createdAt: { gte: start, lte: end },
+      },
+      _sum: { amount: true },
+    });
+
+    const pendingDepositCount = await prisma.deposit.count({
+      where: { status: "pending" },
+    });
+
+    const totalDeposits =
+      Number(approvedDepositSum?._sum?.amount) || 0;
+
+    /* ===============================
+       WITHDRAWS
+    =============================== */
+    const approvedWithdrawCount = await prisma.approvedWithdraw.count({
+      where: {
+        createdAt: { gte: start, lte: end },
+      },
+    });
+
+    const approvedWithdrawSum =
+      await prisma.approvedWithdraw.aggregate({
+        where: {
+          createdAt: { gte: start, lte: end },
+        },
+        _sum: { amount: true },
+      });
+
+    const withdrawFeeSum =
+      await prisma.withdrawRequest.aggregate({
+        where: {
+          status: "approved",
+          approvedAt: { gte: start, lte: end },
+        },
+        _sum: { commission: true },
+      });
+
+    const pendingWithdrawCount =
+      await prisma.withdrawRequest.count({
+        where: { status: "pending" },
+      });
+
+    const totalWithdraws =
+      Number(approvedWithdrawSum?._sum?.amount) || 0;
+
+    const totalFees =
+      Number(withdrawFeeSum?._sum?.commission) || 0;
+
+    const netFlow = Number(
+      (totalDeposits - totalWithdraws).toFixed(6)
+    );
 
     return Response.json({
       range: { start, end },
 
       deposits: {
-        approved: {
-          count: approvedDeposits._count,
-          total: approvedDeposits._sum.amount || 0,
-        },
-        pending: { count: pendingDeposits },
+        count: approvedDepositCount,
+        total: totalDeposits,
       },
 
       withdraws: {
-        approved: {
-          count: approvedWithdraws._count,
-          totalNet: approvedWithdraws._sum.amount || 0,
-        },
-        rejected: {
-          count: rejectedWithdraws._count,
-          total: rejectedWithdraws._sum.amount || 0,
-        },
-        pending: { count: pendingWithdraws },
+        count: approvedWithdrawCount,
+        total: totalWithdraws,
+        fee: totalFees,
       },
 
-      fees: {
-        totalCommission: commission._sum.commission || 0,
-        totalPaid: approvedWithdraws._sum.amount || 0,
+      pending: {
+        deposits: pendingDepositCount,
+        withdraws: pendingWithdrawCount,
       },
 
-      netFlow,
+      totals: {
+        netFlow,
+      },
     });
   } catch (err) {
-    console.error("WEEKLY REPORT ERROR:", err);
+    console.error("❌ WEEKLY REPORT API CRASH:", err);
+
+    // 🔥 NEVER return empty response
     return Response.json(
-      { error: "Failed to load weekly report" },
+      {
+        range: null,
+        deposits: { count: 0, total: 0 },
+        withdraws: { count: 0, total: 0, fee: 0 },
+        pending: { deposits: 0, withdraws: 0 },
+        totals: { netFlow: 0 },
+        error: "Weekly report failed",
+      },
       { status: 500 }
     );
   }
