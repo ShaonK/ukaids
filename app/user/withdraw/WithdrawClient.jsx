@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+const MIN_WITHDRAW_AMOUNT = 5;
+
 export default function WithdrawClient() {
   const router = useRouter();
 
@@ -21,9 +23,9 @@ export default function WithdrawClient() {
      Load wallet
   =============================== */
   async function loadWallet() {
-    const res = await fetch("/api/user/wallet");
+    const res = await fetch("/api/user/wallet", { cache: "no-store" });
     const data = await res.json();
-    setWallet(data.wallet);
+    setWallet(data.wallet || null);
   }
 
   /* ===============================
@@ -47,14 +49,16 @@ export default function WithdrawClient() {
      Load pending withdraw
   =============================== */
   async function loadPendingWithdraw() {
-    const res = await fetch("/api/user/withdraw/history");
+    const res = await fetch("/api/user/withdraw/history", {
+      cache: "no-store",
+    });
     const data = await res.json();
 
     const pending =
       data.items?.find((w) => w.status === "pending") || null;
 
     setPendingWithdraw(pending);
-    setAmount(pending ? pending.amount : "");
+    setAmount(pending ? String(pending.amount) : "");
   }
 
   /* ===============================
@@ -71,90 +75,111 @@ export default function WithdrawClient() {
   }, []);
 
   /* ===============================
-     Move wallets → Account
+     Move income → account
   =============================== */
   async function moveWallet() {
     setLoadingMove(true);
     setMsg("");
 
-    const res = await fetch("/api/user/move-to-account", {
-      method: "POST",
-    });
-    const data = await res.json();
+    try {
+      const res = await fetch("/api/user/move-to-account", {
+        method: "POST",
+      });
+      const data = await res.json();
 
-    setLoadingMove(false);
+      if (!res.ok) {
+        setMsg(data.error || "Wallet move failed");
+        return;
+      }
 
-    if (!res.ok) {
-      setMsg(data.error || "Wallet move failed");
-      return;
+      setMsg(`✅ $${data.movedAmount} moved to Account`);
+      await loadWallet();
+    } finally {
+      setLoadingMove(false);
     }
-
-    setMsg(`✅ ${data.movedAmount} moved to Account`);
-    loadWallet();
   }
 
   /* ===============================
      Submit withdraw
   =============================== */
   async function submitWithdraw() {
-    if (!amount || Number(amount) <= 0) {
-      setMsg("Enter valid amount");
+    const numAmount = Number(amount);
+
+    if (!numAmount || numAmount <= 0) {
+      setMsg("Enter a valid amount");
+      return;
+    }
+
+    if (numAmount < MIN_WITHDRAW_AMOUNT) {
+      setMsg(`Minimum withdraw amount is $${MIN_WITHDRAW_AMOUNT}`);
+      return;
+    }
+
+    if (numAmount > Number(wallet?.mainWallet || 0)) {
+      setMsg("Insufficient account balance");
       return;
     }
 
     setLoadingAction(true);
     setMsg("");
 
-    const res = await fetch("/api/user/withdraw", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        amount: Number(amount),
-        address,
-        network,
-      }),
-    });
+    try {
+      const res = await fetch("/api/user/withdraw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: numAmount,
+          address,
+          network,
+        }),
+      });
 
-    const data = await res.json();
-    setLoadingAction(false);
+      const data = await res.json();
 
-    if (!res.ok) {
-      setMsg(data.error || "Withdraw failed");
-      return;
+      if (!res.ok) {
+        setMsg(data.error || "Withdraw failed");
+        return;
+      }
+
+      setMsg("✅ Withdraw request submitted");
+      await loadPendingWithdraw();
+      await loadWallet();
+    } finally {
+      setLoadingAction(false);
     }
-
-    setMsg("✅ Withdraw request submitted");
-    loadPendingWithdraw();
-    loadWallet();
   }
 
   /* ===============================
      Cancel withdraw
   =============================== */
   async function cancelWithdraw() {
+    if (!pendingWithdraw) return;
     if (!confirm("Cancel withdraw request?")) return;
 
     setLoadingAction(true);
     setMsg("");
 
-    const res = await fetch("/api/user/withdraw/cancel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: pendingWithdraw.id }),
-    });
+    try {
+      const res = await fetch("/api/user/withdraw/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: pendingWithdraw.id }),
+      });
 
-    const data = await res.json();
-    setLoadingAction(false);
+      const data = await res.json();
 
-    if (!res.ok) {
-      setMsg(data.error || "Cancel failed");
-      return;
+      if (!res.ok) {
+        setMsg(data.error || "Cancel failed");
+        return;
+      }
+
+      setMsg("❌ Withdraw cancelled");
+      setPendingWithdraw(null);
+      setAmount("");
+      await loadWallet();
+    } finally {
+      setLoadingAction(false);
     }
-
-    setMsg("❌ Withdraw cancelled");
-    setPendingWithdraw(null);
-    setAmount("");
-    loadWallet();
   }
 
   /* ===============================
@@ -168,7 +193,7 @@ export default function WithdrawClient() {
   ];
 
   const incomeTotal = incomeWallets.reduce(
-    (sum, w) => sum + w.amount,
+    (sum, w) => sum + Number(w.amount),
     0
   );
 
@@ -185,7 +210,9 @@ export default function WithdrawClient() {
       <div className="bg-[#1A1A1A] p-4 rounded-xl mb-4">
         <p className="text-sm text-gray-400 mb-2">
           Movable Income:{" "}
-          <b className="text-green-400">${incomeTotal}</b>
+          <b className="text-green-400">
+            ${incomeTotal.toFixed(2)}
+          </b>
         </p>
 
         <button
@@ -200,18 +227,21 @@ export default function WithdrawClient() {
       {/* WITHDRAW BOX */}
       <div className="bg-[#1A1A1A] p-4 rounded-xl">
         <p className="text-sm mb-1">
-          Account Balance: <b>${wallet?.mainWallet ?? 0}</b>
+          Account Balance:{" "}
+          <b>${Number(wallet?.mainWallet || 0).toFixed(2)}</b>
         </p>
 
-        <p className="text-xs text-gray-400 mb-2">
+        <p className="text-xs text-gray-400 mb-2 break-all">
           {network} → {address}
         </p>
 
         <input
           type="number"
+          min={MIN_WITHDRAW_AMOUNT}
+          step="any"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder="Enter amount"
+          placeholder={`Enter amount (min $${MIN_WITHDRAW_AMOUNT})`}
           className="w-full p-2 bg-black border border-gray-700 rounded mb-3"
         />
 
@@ -225,22 +255,22 @@ export default function WithdrawClient() {
           <button
             onClick={submitWithdraw}
             disabled={loadingAction}
-            className="w-full py-2 bg-gradient-to-r from-orange-500 to-yellow-400 text-black font-semibold rounded"
+            className="w-full py-2 bg-gradient-to-r from-orange-500 to-yellow-400 text-black font-semibold rounded disabled:opacity-50"
           >
-            Submit Withdraw
+            {loadingAction ? "Submitting..." : "Submit Withdraw"}
           </button>
         ) : (
           <button
             onClick={cancelWithdraw}
             disabled={loadingAction}
-            className="w-full py-2 bg-red-600 rounded"
+            className="w-full py-2 bg-red-600 rounded disabled:opacity-50"
           >
             Cancel Withdraw
           </button>
         )}
 
         <p className="text-xs text-gray-500 text-center mt-2">
-          ⚠️ 10% commission applies
+          ⚠️ 10% commission applies · Minimum withdraw ${MIN_WITHDRAW_AMOUNT}
         </p>
       </div>
     </div>
