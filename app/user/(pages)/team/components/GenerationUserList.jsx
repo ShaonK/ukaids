@@ -8,7 +8,9 @@ export default function GenerationUserList({ users, generation }) {
       </h3>
 
       {users.length === 0 && (
-        <p className="text-gray-400 text-sm">No members found</p>
+        <p className="text-gray-400 text-sm">
+          No members found
+        </p>
       )}
 
       <div className="space-y-2">
@@ -18,28 +20,40 @@ export default function GenerationUserList({ users, generation }) {
           return (
             <div
               key={u.id}
-              className="flex justify-between items-center p-3 rounded bg-[#1a1a1a]"
+              className={`flex justify-between items-center p-3 rounded
+                ${
+                  u.isActive
+                    ? "bg-[#1a1a1a]"
+                    : "bg-[#2a1212] border border-red-500"
+                }`}
             >
               {/* Left */}
               <div>
-                <p className="font-semibold text-white">
+                <p
+                  className={`font-semibold ${
+                    u.isActive
+                      ? "text-white"
+                      : "text-red-400"
+                  }`}
+                >
                   {u.username}
                 </p>
+
                 <p className="text-xs text-blue-400">
                   Deposit: {deposit.toFixed(2)}
                 </p>
               </div>
 
-              {/* Right (Readonly task status) */}
-              <div className="opacity-80">
-                {u.isActive ? (
+              {/* Right: TASK STATUS */}
+              <div className="opacity-90">
+                {u.taskCompletedToday ? (
                   <CheckCircle
                     className="text-green-500"
                     size={20}
                   />
                 ) : (
                   <XCircle
-                    className="text-gray-500"
+                    className="text-red-500"
                     size={20}
                   />
                 )}
