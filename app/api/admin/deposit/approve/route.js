@@ -33,18 +33,27 @@ export async function POST(req) {
     }
 
     await prisma.$transaction(async (tx) => {
-      // 1️⃣ mark approved
+      // 1️⃣ Mark deposit approved
       await tx.deposit.update({
         where: { id: deposit.id },
         data: { status: "approved" },
       });
 
-      // 2️⃣ credit wallet SAFELY (NO precision loss)
+      // 2️⃣ Create ApprovedDeposit snapshot ✅
+      await tx.approvedDeposit.create({
+        data: {
+          userId: deposit.userId,
+          amount: deposit.amount,
+          trxId: deposit.trxId,
+        },
+      });
+
+      // 3️⃣ Credit wallet
       await creditWallet({
         tx,
         userId: deposit.userId,
-        walletType: "ACCOUNT", // ✅ matches history API
-        amount: deposit.amount, // ❌ NO Number()
+        walletType: "ACCOUNT",
+        amount: deposit.amount,
         source: "DEPOSIT_APPROVED",
         referenceId: deposit.id,
         note: "Deposit approved by admin",
