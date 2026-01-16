@@ -2,12 +2,17 @@ import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 import { debitWallet, creditWallet } from "@/lib/walletService";
 
+const MIN_TRANSFER_AMOUNT = 5;
+
 export async function POST(req) {
   try {
     // 🔐 Auth
     const sender = await getUser();
     if (!sender) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
+      return Response.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     // 🔒 Sender eligibility
@@ -29,7 +34,16 @@ export async function POST(req) {
       );
     }
 
-    // 🔍 Find receiver (username OR id)
+    if (transferAmount < MIN_TRANSFER_AMOUNT) {
+      return Response.json(
+        {
+          error: `Minimum transfer amount is $${MIN_TRANSFER_AMOUNT}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // 🔍 Find receiver
     const receiverUser = await prisma.user.findFirst({
       where: {
         OR: [
@@ -46,7 +60,10 @@ export async function POST(req) {
     });
 
     if (!receiverUser) {
-      return Response.json({ error: "Receiver not found" }, { status: 404 });
+      return Response.json(
+        { error: "Receiver not found" },
+        { status: 404 }
+      );
     }
 
     // ❌ Self transfer
@@ -67,8 +84,7 @@ export async function POST(req) {
 
     // 🔁 ATOMIC TRANSFER
     await prisma.$transaction(async (tx) => {
-
-      // ➖ Debit sender (ACCOUNT → mainWallet)
+      // ➖ Debit sender
       await debitWallet({
         tx,
         userId: sender.id,
@@ -78,7 +94,7 @@ export async function POST(req) {
         note: `Transfer to ${receiverUser.username}`,
       });
 
-      // ➕ Credit receiver (ACCOUNT → mainWallet)
+      // ➕ Credit receiver
       await creditWallet({
         tx,
         userId: receiverUser.id,
@@ -88,7 +104,7 @@ export async function POST(req) {
         note: `Transfer from ${sender.username}`,
       });
 
-      // 📄 Save transfer history (APPROVED)
+      // 📄 History
       await tx.balanceTransfer.create({
         data: {
           senderId: sender.id,
