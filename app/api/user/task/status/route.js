@@ -1,8 +1,7 @@
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 
-// ✅ timezone-safe day info
-function getDayInfo(timezone) {
+function getTodayInfo(timezone) {
   const now = new Date(
     new Date().toLocaleString("en-US", { timeZone: timezone })
   );
@@ -12,16 +11,17 @@ function getDayInfo(timezone) {
     timeZone: timezone,
   });
 
-  const midnight = new Date(now);
-  midnight.setHours(0, 0, 0, 0);
+  const todayMidnight = new Date(now);
+  todayMidnight.setHours(0, 0, 0, 0);
 
-  const nextMidnight = new Date(midnight);
+  const nextMidnight = new Date(todayMidnight);
   nextMidnight.setDate(nextMidnight.getDate() + 1);
 
   return {
     dayShort,
-    todayMidnightMs: midnight.getTime(),
+    todayMidnightMs: todayMidnight.getTime(),
     nextMidnightMs: nextMidnight.getTime(),
+    nowMs: now.getTime(),
   };
 }
 
@@ -42,60 +42,47 @@ export async function GET() {
 
     const settings = await prisma.roiSettings.findFirst();
     const roiDays = settings?.roiDays?.split(",") ?? [
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
+      "Mon", "Tue", "Wed", "Thu", "Fri",
     ];
-    const timezone = settings?.timezone || "Asia/Dhaka";
+    const timezone = settings?.timezone ?? "Asia/Dhaka";
 
     const {
       dayShort,
       todayMidnightMs,
       nextMidnightMs,
-    } = getDayInfo(timezone);
+      nowMs,
+    } = getTodayInfo(timezone);
 
-    const roiAmount = Number((activePkg.amount * 0.02).toFixed(6));
-
-    // ❌ OFF DAY
+    // ❌ Off day
     if (!roiDays.includes(dayShort)) {
       return Response.json({
         success: true,
         earning: {
           isReady: false,
-          reason: "OFF_DAY",
           nextRunMs: nextMidnightMs,
-          amount: roiAmount,
+          reason: "OFF_DAY",
         },
       });
     }
 
-    const lastRoiMs = activePkg.lastRoiAt
-      ? new Date(activePkg.lastRoiAt).getTime()
+    // 🔑 IMPORTANT FIX: lastRoiAt → timezone aware
+    const lastRoiLocalMs = activePkg.lastRoiAt
+      ? new Date(
+          new Date(activePkg.lastRoiAt).toLocaleString("en-US", {
+            timeZone: timezone,
+          })
+        ).getTime()
       : null;
 
-    // ❌ Already completed today
-    if (lastRoiMs && lastRoiMs >= todayMidnightMs) {
-      return Response.json({
-        success: true,
-        earning: {
-          isReady: false,
-          reason: "COMPLETED",
-          nextRunMs: nextMidnightMs,
-          amount: roiAmount,
-        },
-      });
-    }
+    // ✅ Ready only if not done today
+    const isReady = !lastRoiLocalMs || lastRoiLocalMs < todayMidnightMs;
 
-    // ✅ READY
     return Response.json({
       success: true,
       earning: {
-        isReady: true,
-        reason: "READY",
-        nextRunMs: null,
-        amount: roiAmount,
+        isReady,
+        nextRunMs: isReady ? null : nextMidnightMs,
+        amount: Number((activePkg.amount * 0.02).toFixed(6)),
       },
     });
   } catch (err) {
