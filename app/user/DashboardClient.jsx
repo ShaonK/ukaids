@@ -9,12 +9,10 @@ import QuickActions from "./components/QuickActions";
 import InviteButton from "./components/InviteButton";
 import IncomeOptions from "./components/IncomeOptions";
 import FeatherImage from "./components/FeatherImage";
-import TaskCard from "./components/TaskCard";
 
 export default function DashboardClient() {
   const [wallet, setWallet] = useState({
     mainWallet: 0,
-    depositWallet: 0,
     roiWallet: 0,
     referralWallet: 0,
     levelWallet: 0,
@@ -23,13 +21,14 @@ export default function DashboardClient() {
     donationWallet: 0,
   });
 
+  const [activePackageAmount, setActivePackageAmount] = useState(0);
+
   const [lifetimeIncome, setLifetimeIncome] = useState({
     roi: 0,
     level: 0,
     referral: 0,
   });
 
-  const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
 
   /* =========================
@@ -42,29 +41,53 @@ export default function DashboardClient() {
       try {
         const res = await fetch("/api/user/wallet", { cache: "no-store" });
         if (!res.ok) return;
-        const data = await res.json();
 
-        if (mounted && data?.wallet) {
-          setWallet({
-            mainWallet: Number(data.wallet.mainWallet || 0),
-            depositWallet: Number(data.wallet.depositWallet || 0),
-            roiWallet: Number(data.wallet.roiWallet || 0),
-            referralWallet: Number(data.wallet.referralWallet || 0),
-            levelWallet: Number(data.wallet.levelWallet || 0),
-            returnWallet: Number(data.wallet.returnWallet || 0),
-            salaryWallet: Number(data.wallet.salaryWallet || 0),
-            donationWallet: Number(data.wallet.donationWallet || 0),
-          });
-        }
+        const data = await res.json();
+        if (!mounted || !data?.wallet) return;
+
+        setWallet({
+          mainWallet: Number(data.wallet.mainWallet || 0),
+          roiWallet: Number(data.wallet.roiWallet || 0),
+          referralWallet: Number(data.wallet.referralWallet || 0),
+          levelWallet: Number(data.wallet.levelWallet || 0),
+          returnWallet: Number(data.wallet.returnWallet || 0),
+          salaryWallet: Number(data.wallet.salaryWallet || 0),
+          donationWallet: Number(data.wallet.donationWallet || 0),
+        });
       } catch (err) {
         console.error("Wallet load error:", err);
-      } finally {
-        if (mounted) setLoading(false);
       }
     }
 
     loadWallet();
     return () => (mounted = false);
+  }, []);
+
+  /* =========================
+     LOAD ACTIVE PACKAGE
+  ========================= */
+  useEffect(() => {
+    async function loadActivePackage() {
+      try {
+        const res = await fetch("/api/user/active-package", {
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          setActivePackageAmount(0);
+          return;
+        }
+
+        const data = await res.json();
+        setActivePackageAmount(Number(data?.amount || 0));
+      } catch (err) {
+        console.error("Active package load error:", err);
+        setActivePackageAmount(0);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadActivePackage();
   }, []);
 
   /* =========================
@@ -77,6 +100,7 @@ export default function DashboardClient() {
           cache: "no-store",
         });
         if (!res.ok) return;
+
         const data = await res.json();
         setLifetimeIncome({
           roi: Number(data.roi || 0),
@@ -88,22 +112,6 @@ export default function DashboardClient() {
       }
     }
     loadIncome();
-  }, []);
-
-  /* =========================
-     LOAD PACKAGES
-  ========================= */
-  useEffect(() => {
-    async function loadPackages() {
-      try {
-        const res = await fetch("/api/packages", { cache: "no-store" });
-        const data = await res.json();
-        setPackages(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Package load error:", err);
-      }
-    }
-    loadPackages();
   }, []);
 
   const fmt = (n) => Number(n).toFixed(2) + " USD";
@@ -140,34 +148,43 @@ export default function DashboardClient() {
           title="Account Balance"
           amount={fmt(wallet.mainWallet)}
         />
+
+        {/* ✅ ACTIVE PACKAGE ONLY */}
         <UserAmountSummaryCard
           title="Deposit Balance"
-          amount={fmt(wallet.depositWallet)}
+          amount={fmt(activePackageAmount)}
         />
+
         <UserAmountSummaryCard
           title="ROI Wallet"
           amount={fmt(wallet.roiWallet)}
         />
+
         <UserAmountSummaryCard
           title="Referral Wallet"
           amount={fmt(wallet.referralWallet)}
         />
+
         <UserAmountSummaryCard
           title="Level Wallet"
           amount={fmt(wallet.levelWallet)}
         />
+
         <UserAmountSummaryCard
           title="Rank Salary Wallet"
           amount={fmt(wallet.salaryWallet)}
         />
+
         <UserAmountSummaryCard
           title="Gift Wallet"
           amount={fmt(wallet.donationWallet)}
         />
+
         <UserAmountSummaryCard
           title="Return Wallet"
           amount={fmt(wallet.returnWallet)}
         />
+
         <UserAmountSummaryCard
           title="Total Income (Lifetime)"
           amount={fmt(totalIncome)}
@@ -180,12 +197,6 @@ export default function DashboardClient() {
       <InviteButton />
       <IncomeOptions />
       <FeatherImage />
-
-      <div className="pb-6">
-        {packages.map((pkg) => (
-          <TaskCard key={pkg.id} pkg={pkg} />
-        ))}
-      </div>
     </div>
   );
 }

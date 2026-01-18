@@ -2,9 +2,6 @@ import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/getUser";
 import { ensureUserActive } from "@/lib/updateUserActiveStatus";
-import { distributeReferralCommission } from "@/lib/referralService";
-
-const BUY_LIMIT = 500;
 
 export async function POST(req) {
   try {
@@ -23,106 +20,122 @@ export async function POST(req) {
 
     const userId = user.id;
 
-    const pkg = await prisma.package.findUnique({
+    const newPkg = await prisma.package.findUnique({
       where: { id: Number(packageId) },
     });
 
-    if (!pkg) {
+    if (!newPkg || !newPkg.isActive) {
       return NextResponse.json(
-        { error: "Package not found" },
+        { error: "Package not available" },
         { status: 404 }
       );
     }
 
-    if (Number(pkg.amount) > BUY_LIMIT) {
-      return NextResponse.json(
-        { error: "This package is upgrade-only" },
-        { status: 403 }
-      );
-    }
+    const newAmount = Number(newPkg.amount);
 
-    if (!pkg.isActive) {
-      return NextResponse.json(
-        { error: "Package not active yet" },
-        { status: 403 }
-      );
-    }
-
-    const amount = Number(pkg.amount);
-
-    await prisma.$transaction(async (tx) => {
+    // -------------------------------
+    // TRANSACTION (SHORT & SAFE)
+    // -------------------------------
+    const result = await prisma.$transaction(async (tx) => {
       await ensureUserActive(tx, userId);
 
       const wallet = await tx.wallet.findUnique({
         where: { userId },
       });
 
-      if (!wallet || Number(wallet.mainWallet) < amount) {
+      if (!wallet || Number(wallet.mainWallet) < newAmount) {
         throw new Error("Insufficient balance");
       }
 
-      const accBefore = wallet.mainWallet;
-      const accAfter = accBefore.minus(amount);
+      const activePkg = await tx.userPackage.findFirst({
+        where: { userId, isActive: true },
+        orderBy: { startedAt: "desc" },
+      });
 
-      // 🔻 ACCOUNT DEBIT
+      // 🔻 Update wallet balances ONLY
       await tx.wallet.update({
         where: { userId },
         data: {
-          mainWallet: { decrement: amount },
-          depositWallet: { increment: amount },
+          mainWallet: { decrement: newAmount },
+          returnWallet: activePkg
+            ? { increment: activePkg.amount }
+            : undefined,
         },
       });
 
-      // ✅ ACCOUNT HISTORY
-      await tx.walletTransaction.create({
-        data: {
-          userId,
-          walletType: "ACCOUNT",
-          direction: "DEBIT",
-          amount,
-          balanceBefore: accBefore,
-          balanceAfter: accAfter,
-          source: "PACKAGE_BUY",
-          note: `Package purchased (${pkg.name})`,
-        },
-      });
+      // 🔁 Deactivate old package
+      if (activePkg) {
+        await tx.userPackage.update({
+          where: { id: activePkg.id },
+          data: {
+            isActive: false,
+            endedAt: new Date(),
+          },
+        });
+      }
 
-      // ✅ DEPOSIT HISTORY
-      await tx.walletTransaction.create({
+      // ✅ Activate new package
+      const newUserPkg = await tx.userPackage.create({
         data: {
           userId,
-          walletType: "DEPOSIT",
-          direction: "CREDIT",
-          amount,
-          balanceBefore: wallet.depositWallet,
-          balanceAfter: wallet.depositWallet.plus(amount),
-          source: "PACKAGE_BUY",
-          note: `Package activated (${pkg.name})`,
-        },
-      });
-
-      await tx.userPackage.create({
-        data: {
-          userId,
-          packageId: pkg.id,
-          amount,
+          packageId: newPkg.id,
+          amount: newAmount,
           isActive: true,
-          source: "self",
+          source: "upgrade",
           startedAt: new Date(),
         },
       });
+
+      return {
+        wallet,
+        activePkg,
+        newUserPkg,
+      };
     });
 
-    await distributeReferralCommission({
-      buyerId: userId,
-      packageAmount: amount,
-      source: "PACKAGE_BUY",
+    // -------------------------------
+    // LEDGER LOGS (OUTSIDE TX)
+    // -------------------------------
+    const { wallet, activePkg } = result;
+
+    // ACCOUNT debit log
+    await prisma.walletTransaction.create({
+      data: {
+        userId,
+        walletType: "ACCOUNT",
+        direction: "DEBIT",
+        amount: newAmount,
+        balanceBefore: wallet.mainWallet,
+        balanceAfter: wallet.mainWallet - newAmount,
+        source: "PACKAGE_UPGRADE",
+        note: `Upgrade to ${newPkg.name}`,
+      },
     });
 
-    return NextResponse.json({ success: true });
+    // RETURN wallet credit log
+    if (activePkg) {
+      await prisma.walletTransaction.create({
+        data: {
+          userId,
+          walletType: "RETURN",
+          direction: "CREDIT",
+          amount: activePkg.amount,
+          balanceBefore: wallet.returnWallet,
+          balanceAfter: wallet.returnWallet + activePkg.amount,
+          source: "PACKAGE_UPGRADE_RETURN",
+          referenceId: activePkg.id,
+          note: "Previous package amount returned",
+        },
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Package upgraded successfully",
+    });
 
   } catch (err) {
-    console.error("PACKAGE BUY ERROR:", err);
+    console.error("PACKAGE UPGRADE ERROR:", err);
     return NextResponse.json(
       { error: err.message || "Server error" },
       { status: 500 }
