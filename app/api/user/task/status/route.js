@@ -1,28 +1,15 @@
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 
-function getTodayInfo(timezone) {
+const TIMEZONE = "Asia/Dhaka";
+
+function getBDMidnight() {
   const now = new Date(
-    new Date().toLocaleString("en-US", { timeZone: timezone })
+    new Date().toLocaleString("en-US", { timeZone: TIMEZONE })
   );
-
-  const dayShort = now.toLocaleDateString("en-US", {
-    weekday: "short",
-    timeZone: timezone,
-  });
-
-  const todayMidnight = new Date(now);
-  todayMidnight.setHours(0, 0, 0, 0);
-
-  const nextMidnight = new Date(todayMidnight);
-  nextMidnight.setDate(nextMidnight.getDate() + 1);
-
-  return {
-    dayShort,
-    todayMidnightMs: todayMidnight.getTime(),
-    nextMidnightMs: nextMidnight.getTime(),
-    nowMs: now.getTime(),
-  };
+  const midnight = new Date(now);
+  midnight.setHours(0, 0, 0, 0);
+  return midnight.getTime();
 }
 
 export async function GET() {
@@ -42,51 +29,50 @@ export async function GET() {
 
     const settings = await prisma.roiSettings.findFirst();
     const roiDays = settings?.roiDays?.split(",") ?? [
-      "Mon", "Tue", "Wed", "Thu", "Fri",
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
     ];
-    const timezone = settings?.timezone ?? "Asia/Dhaka";
 
-    const {
-      dayShort,
-      todayMidnightMs,
-      nextMidnightMs,
-      nowMs,
-    } = getTodayInfo(timezone);
+    const todayBD = new Date().toLocaleDateString("en-US", {
+      weekday: "short",
+      timeZone: TIMEZONE,
+    });
 
-    // ❌ Off day
-    if (!roiDays.includes(dayShort)) {
+    if (!roiDays.includes(todayBD)) {
       return Response.json({
         success: true,
         earning: {
           isReady: false,
-          nextRunMs: nextMidnightMs,
           reason: "OFF_DAY",
         },
       });
     }
 
-    // 🔑 IMPORTANT FIX: lastRoiAt → timezone aware
-    const lastRoiLocalMs = activePkg.lastRoiAt
-      ? new Date(
-          new Date(activePkg.lastRoiAt).toLocaleString("en-US", {
-            timeZone: timezone,
-          })
-        ).getTime()
+    const todayMidnight = getBDMidnight();
+    const lastRun = activePkg.lastRoiAt
+      ? new Date(activePkg.lastRoiAt).getTime()
       : null;
 
-    // ✅ Ready only if not done today
-    const isReady = !lastRoiLocalMs || lastRoiLocalMs < todayMidnightMs;
+    const isReady = !lastRun || lastRun < todayMidnight;
+    const nextRunMs = isReady
+      ? null
+      : todayMidnight + 24 * 60 * 60 * 1000;
+
+    const roiAmount = Number((activePkg.amount * 0.02).toFixed(6));
 
     return Response.json({
       success: true,
       earning: {
         isReady,
-        nextRunMs: isReady ? null : nextMidnightMs,
-        amount: Number((activePkg.amount * 0.02).toFixed(6)),
+        nextRunMs,
+        amount: roiAmount,
       },
     });
   } catch (err) {
-    console.error("TASK STATUS ERROR:", err);
+    console.error("❌ TASK STATUS ERROR:", err);
     return Response.json({ error: "Server error" }, { status: 500 });
   }
 }

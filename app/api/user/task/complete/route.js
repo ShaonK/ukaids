@@ -3,6 +3,18 @@ import { getUser } from "@/lib/getUser";
 import { creditWallet } from "@/lib/walletService";
 import { distributeLevelIncome } from "@/lib/levelService";
 
+const TIMEZONE = "Asia/Dhaka";
+
+// 🔹 helper: today midnight in BD
+function getBDMidnight() {
+  const now = new Date(
+    new Date().toLocaleString("en-US", { timeZone: TIMEZONE })
+  );
+  const midnight = new Date(now);
+  midnight.setHours(0, 0, 0, 0);
+  return midnight.getTime();
+}
+
 export async function POST() {
   try {
     const user = await getUser();
@@ -15,12 +27,10 @@ export async function POST() {
     });
 
     if (!activePkg) {
-      return Response.json(
-        { error: "No active package" },
-        { status: 400 }
-      );
+      return Response.json({ error: "No active package" }, { status: 400 });
     }
 
+    // 🔹 ROI settings
     const settings = await prisma.roiSettings.findFirst();
     const roiDays = settings?.roiDays?.split(",") ?? [
       "Mon",
@@ -29,30 +39,25 @@ export async function POST() {
       "Thu",
       "Fri",
     ];
-    const timezone = settings?.timezone || "Asia/Dhaka";
 
-    const now = new Date(
-      new Date().toLocaleString("en-US", { timeZone: timezone })
-    );
-
-    const dayShort = now.toLocaleDateString("en-US", {
+    const todayBD = new Date().toLocaleDateString("en-US", {
       weekday: "short",
-      timeZone: timezone,
+      timeZone: TIMEZONE,
     });
 
-    if (!roiDays.includes(dayShort)) {
+    if (!roiDays.includes(todayBD)) {
       return Response.json(
         { error: "Task not available today" },
         { status: 400 }
       );
     }
 
-    const todayMidnight = new Date(now);
-    todayMidnight.setHours(0, 0, 0, 0);
+    const todayMidnight = getBDMidnight();
 
+    // ❌ already done today
     if (
       activePkg.lastRoiAt &&
-      new Date(activePkg.lastRoiAt) >= todayMidnight
+      new Date(activePkg.lastRoiAt).getTime() >= todayMidnight
     ) {
       return Response.json(
         { error: "Task already completed today" },
@@ -62,6 +67,7 @@ export async function POST() {
 
     const roiAmount = Number((activePkg.amount * 0.02).toFixed(6));
 
+    // 🔥 atomic
     await prisma.$transaction(async (tx) => {
       await creditWallet({
         tx,
@@ -72,18 +78,10 @@ export async function POST() {
         note: "Daily task ROI",
       });
 
-      await tx.roiHistory.create({
-        data: {
-          userId: user.id,
-          amount: roiAmount,
-          earningId: null,
-        },
-      });
-
       await tx.userPackage.update({
         where: { id: activePkg.id },
         data: {
-          lastRoiAt: now,
+          lastRoiAt: new Date(),
           totalEarned: { increment: roiAmount },
         },
       });
@@ -94,9 +92,16 @@ export async function POST() {
       roiAmount,
     });
 
-    return Response.json({ success: true });
+    // 🔥 next run = NEXT BD MIDNIGHT
+    const nextMidnight = todayMidnight + 24 * 60 * 60 * 1000;
+
+    return Response.json({
+      success: true,
+      roi: roiAmount,
+      nextRunMs: nextMidnight,
+    });
   } catch (err) {
-    console.error("TASK COMPLETE ERROR:", err);
+    console.error("❌ TASK COMPLETE ERROR:", err);
     return Response.json({ error: "Server error" }, { status: 500 });
   }
 }
