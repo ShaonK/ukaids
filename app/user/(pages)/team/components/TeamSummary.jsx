@@ -20,7 +20,7 @@ export default function TeamSummary({ data, totalTeam }) {
       </p>
       <p>Active Members: {active}</p>
       <p>
-        Total Team Income: $
+        Total Team Diposit: $
         {totalDeposit.toFixed(2)}
       </p>
 
