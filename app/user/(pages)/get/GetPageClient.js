@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import HeaderButtons from "./components/HeaderButtons";
 import EarningsSummary from "./components/EarningsSummary";
-import TaskProgress from "./components/TaskProgress";
+import TaskProgress from "@/app/user/components/TaskProgress";
 import AssignmentNotice from "./components/AssignmentNotice";
 import toast from "react-hot-toast";
 

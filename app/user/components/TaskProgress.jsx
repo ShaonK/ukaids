@@ -1,120 +1,93 @@
 "use client";
+
 import { useEffect, useState } from "react";
 
-export default function TaskProgress() {
-    const [loading, setLoading] = useState(true);
-    const [running, setRunning] = useState(false);
-    const [message, setMessage] = useState("");
-    const [status, setStatus] = useState(null);
+function formatTime(ms) {
+  if (!ms || ms <= 0) return null;
 
-    // ----------------------------
-    // LOAD TASK STATUS
-    // ----------------------------
-    async function loadStatus() {
-        setLoading(true);
-        const res = await fetch("/api/user/task/status", {
-            cache: "no-store",
-        });
-        const data = await res.json();
-        setStatus(data.earning || null);
-        setLoading(false);
+  const total = Math.floor(ms / 1000);
+  const h = String(Math.floor(total / 3600)).padStart(2, "0");
+  const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+  const s = String(total % 60).padStart(2, "0");
+
+  return `${h}:${m}:${s}`;
+}
+
+export default function TaskProgress({ task, onStart, loading }) {
+  const [countdown, setCountdown] = useState(null);
+
+  const earning = task?.earning;
+
+  // ⏳ Countdown handler
+  useEffect(() => {
+    if (!earning?.nextRunMs) {
+      setCountdown(null);
+      return;
     }
 
-    useEffect(() => {
-        loadStatus();
-    }, []);
+    const update = () => {
+      const left = earning.nextRunMs - Date.now();
+      setCountdown(left > 0 ? formatTime(left) : null);
+    };
 
-    // ----------------------------
-    // START TASK
-    // ----------------------------
-    async function startTask() {
-        setRunning(true);
-        setMessage("⏳ Task running...");
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [earning?.nextRunMs]);
 
-        await new Promise((r) => setTimeout(r, 5000));
-
-        const res = await fetch("/api/user/task/complete", {
-            method: "POST",
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-            setMessage("❌ " + data.error);
-            setRunning(false);
-            return;
-        }
-
-        setMessage("✅ Task completed. ROI added.");
-        setRunning(false);
-        loadStatus();
-    }
-
-    // ----------------------------
-    // UI STATES
-    // ----------------------------
-    if (loading) {
-        return (
-            <div className="p-4 bg-white rounded-xl mt-4 shadow text-center">
-                Checking task status…
-            </div>
-        );
-    }
-
-    // ❌ OFF DAY
-    if (status?.reason === "OFF_DAY") {
-        return (
-            <div className="p-4 bg-white rounded-xl mt-4 shadow text-center">
-                <p className="font-semibold text-gray-700">Task Locked</p>
-                <p className="text-sm text-red-500 mt-1">
-                    Task available only Monday to Friday
-                </p>
-            </div>
-        );
-    }
-
-    // ❌ Already completed today
-    if (status && !status.isReady) {
-        const left =
-            status.nextRunMs - Date.now();
-
-        const mins = Math.max(0, Math.floor(left / 1000 / 60));
-        const secs = Math.max(0, Math.floor((left / 1000) % 60));
-
-        return (
-            <div className="p-4 bg-white rounded-xl mt-4 shadow text-center">
-                <p className="font-semibold text-gray-700">Task Completed</p>
-                <p className="text-sm text-blue-600 mt-1">
-                    Next task in {mins}m {secs}s
-                </p>
-            </div>
-        );
-    }
-
-    // ✅ READY
+  // ======================
+  // READY STATE
+  // ======================
+  if (earning?.isReady) {
     return (
-        <div className="p-4 bg-white rounded-xl mt-4 shadow">
-            <div className="flex justify-between items-center">
-                <div>
-                    <p className="text-lg font-semibold">Daily Task</p>
-                    <p className="text-sm text-gray-500">
-                        Reward: ${Number(status.amount).toFixed(2)}
-                    </p>
-                </div>
+      <div className="mt-4 bg-white rounded-xl p-4 shadow">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-lg font-semibold text-black">
+              Daily Task Available
+            </p>
+            <p className="text-sm text-gray-500">
+              Reward: ${Number(earning.amount).toFixed(2)}
+            </p>
+          </div>
 
-                <button
-                    onClick={startTask}
-                    disabled={running}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50"
-                >
-                    {running ? "Running..." : "Start Now"}
-                </button>
-            </div>
-
-            {message && (
-                <div className="mt-3 text-sm bg-gray-100 p-2 rounded">
-                    {message}
-                </div>
-            )}
+          <button
+            onClick={onStart}
+            disabled={loading}
+            className="px-4 py-2 bg-orange-500 text-white rounded-lg font-semibold disabled:opacity-50"
+          >
+            {loading ? "Processing..." : "Start Now"}
+          </button>
         </div>
+      </div>
     );
+  }
+
+  // ======================
+  // LOCKED STATE
+  // ======================
+  return (
+    <div className="mt-4 bg-white rounded-xl p-4 shadow text-center">
+      <p className="text-lg font-semibold text-gray-700">
+        🔒 Task Locked
+      </p>
+
+      {earning?.reason === "OFF_DAY" && (
+        <p className="text-sm text-red-500 mt-1">
+          Task available only Monday to Friday
+        </p>
+      )}
+
+      {countdown && (
+        <div className="mt-3">
+          <p className="text-sm text-gray-500">
+            Next task available in
+          </p>
+          <p className="text-xl font-bold text-blue-600 mt-1">
+            {countdown}
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }
