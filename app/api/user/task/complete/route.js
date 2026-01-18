@@ -4,6 +4,9 @@ import { getUser } from "@/lib/getUser";
 import { creditWallet } from "@/lib/walletService";
 import { distributeLevelIncome } from "@/lib/levelService";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // ---------- helpers ----------
 function getDayInfo(timezone = "Asia/Dhaka") {
   const now = new Date(
@@ -37,25 +40,21 @@ export async function POST() {
     });
 
     if (!activePkg) {
-      return Response.json({ error: "No active package" }, { status: 400 });
+      return Response.json(
+        { error: "No active package" },
+        { status: 400 }
+      );
     }
 
     // 🔹 ROI settings
     const settings = await prisma.roiSettings.findFirst();
-    const roiDays = settings?.roiDays?.split(",") ?? [
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
-    ];
-
-    // ✅ FORCE Bangladesh timezone
+    const roiDays =
+      settings?.roiDays?.split(",") ?? ["Mon", "Tue", "Wed", "Thu", "Fri"];
     const timezone = settings?.timezone || "Asia/Dhaka";
 
     const { dayShort, todayMidnightMs } = getDayInfo(timezone);
 
-    // ❌ Weekend safety
+    // ❌ OFF DAY
     if (!roiDays.includes(dayShort)) {
       return Response.json(
         { error: "Task not available today" },
@@ -78,7 +77,7 @@ export async function POST() {
     const roiAmount = Number((activePkg.amount * 0.02).toFixed(6));
 
     // -------------------------
-    // 1️⃣ FAST TRANSACTION
+    // 1️⃣ ATOMIC TRANSACTION
     // -------------------------
     await prisma.$transaction(async (tx) => {
       await creditWallet({
@@ -108,7 +107,7 @@ export async function POST() {
     });
 
     // -------------------------
-    // 2️⃣ LEVEL INCOME (outside tx)
+    // 2️⃣ LEVEL INCOME (OUTSIDE TX)
     // -------------------------
     await distributeLevelIncome({
       buyerId: user.id,
@@ -118,9 +117,6 @@ export async function POST() {
     return Response.json({
       success: true,
       roi: roiAmount,
-      nextRun: new Date(
-        new Date().setHours(24, 0, 0, 0)
-      ).toISOString(),
     });
   } catch (err) {
     console.error("❌ TASK COMPLETE ERROR:", err);

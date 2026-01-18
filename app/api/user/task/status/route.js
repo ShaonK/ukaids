@@ -2,6 +2,9 @@
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // ---------- helpers ----------
 function getDayInfo(timezone = "Asia/Dhaka") {
   const now = new Date(
@@ -39,26 +42,22 @@ export async function GET() {
     });
 
     if (!activePkg) {
-      return Response.json({ success: true, earning: null });
+      return Response.json({
+        success: true,
+        earning: null,
+      });
     }
 
     // 🔹 ROI settings
     const settings = await prisma.roiSettings.findFirst();
-    const roiDays = settings?.roiDays?.split(",") ?? [
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
-    ];
-
-    // ✅ FORCE Bangladesh timezone
+    const roiDays =
+      settings?.roiDays?.split(",") ?? ["Mon", "Tue", "Wed", "Thu", "Fri"];
     const timezone = settings?.timezone || "Asia/Dhaka";
 
     const { dayShort, todayMidnightMs, nextMidnightMs } =
       getDayInfo(timezone);
 
-    // ❌ Off day (Sat / Sun)
+    // ❌ OFF DAY (Sat–Sun)
     if (!roiDays.includes(dayShort)) {
       return Response.json({
         success: true,
@@ -74,18 +73,15 @@ export async function GET() {
       ? new Date(activePkg.lastRoiAt).getTime()
       : null;
 
-    // ✅ Ready if not completed today
+    // ✅ Ready only once per day
     const isReady = !lastRoiMs || lastRoiMs < todayMidnightMs;
-    const nextRunMs = isReady ? null : nextMidnightMs;
-
-    const roiAmount = Number((activePkg.amount * 0.02).toFixed(6));
 
     return Response.json({
       success: true,
       earning: {
         isReady,
-        nextRunMs,
-        amount: roiAmount,
+        nextRunMs: isReady ? null : nextMidnightMs,
+        amount: Number((activePkg.amount * 0.02).toFixed(6)),
       },
     });
   } catch (err) {
