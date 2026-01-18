@@ -1,84 +1,113 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
-export default function TaskProgress({ completed, total, onStart }) {
-    const [loading, setLoading] = useState(false);
-    const [taskRunning, setTaskRunning] = useState(false);
+export default function TaskProgress() {
+    const [loading, setLoading] = useState(true);
+    const [running, setRunning] = useState(false);
     const [message, setMessage] = useState("");
-    const [countdown, setCountdown] = useState(null);
+    const [status, setStatus] = useState(null);
 
-    async function startTask() {
-        setTaskRunning(true);
-        setMessage("⏳ Task running... please wait 5 seconds");
-
-        // fake animation timing
-        await new Promise((res) => setTimeout(res, 5000));
-
-        setMessage("Submitting...");
+    // ----------------------------
+    // LOAD TASK STATUS
+    // ----------------------------
+    async function loadStatus() {
         setLoading(true);
+        const res = await fetch("/api/user/task/status", {
+            cache: "no-store",
+        });
+        const data = await res.json();
+        setStatus(data.earning || null);
+        setLoading(false);
+    }
+
+    useEffect(() => {
+        loadStatus();
+    }, []);
+
+    // ----------------------------
+    // START TASK
+    // ----------------------------
+    async function startTask() {
+        setRunning(true);
+        setMessage("⏳ Task running...");
+
+        await new Promise((r) => setTimeout(r, 5000));
 
         const res = await fetch("/api/user/task/complete", {
             method: "POST",
         });
-
         const data = await res.json();
-        setLoading(false);
 
-        if (!data.success) {
+        if (!res.ok) {
             setMessage("❌ " + data.error);
-            setTaskRunning(false);
+            setRunning(false);
             return;
         }
 
-        setMessage("✅ Task Completed! ROI added.");
-
-        // next run countdown
-        const next = new Date(data.nextRun).getTime();
-
-        const interval = setInterval(() => {
-            const now = Date.now();
-            const left = next - now;
-
-            if (left <= 0) {
-                clearInterval(interval);
-                setCountdown("New task available");
-                setTaskRunning(false);
-            } else {
-                const mins = Math.floor(left / 1000 / 60);
-                const secs = Math.floor((left / 1000) % 60);
-                setCountdown(`${mins}m ${secs}s remaining`);
-            }
-        }, 1000);
+        setMessage("✅ Task completed. ROI added.");
+        setRunning(false);
+        loadStatus();
     }
 
+    // ----------------------------
+    // UI STATES
+    // ----------------------------
+    if (loading) {
+        return (
+            <div className="p-4 bg-white rounded-xl mt-4 shadow text-center">
+                Checking task status…
+            </div>
+        );
+    }
+
+    // ❌ OFF DAY
+    if (status?.reason === "OFF_DAY") {
+        return (
+            <div className="p-4 bg-white rounded-xl mt-4 shadow text-center">
+                <p className="font-semibold text-gray-700">Task Locked</p>
+                <p className="text-sm text-red-500 mt-1">
+                    Task available only Monday to Friday
+                </p>
+            </div>
+        );
+    }
+
+    // ❌ Already completed today
+    if (status && !status.isReady) {
+        const left =
+            status.nextRunMs - Date.now();
+
+        const mins = Math.max(0, Math.floor(left / 1000 / 60));
+        const secs = Math.max(0, Math.floor((left / 1000) % 60));
+
+        return (
+            <div className="p-4 bg-white rounded-xl mt-4 shadow text-center">
+                <p className="font-semibold text-gray-700">Task Completed</p>
+                <p className="text-sm text-blue-600 mt-1">
+                    Next task in {mins}m {secs}s
+                </p>
+            </div>
+        );
+    }
+
+    // ✅ READY
     return (
         <div className="p-4 bg-white rounded-xl mt-4 shadow">
             <div className="flex justify-between items-center">
                 <div>
                     <p className="text-lg font-semibold">Daily Task</p>
                     <p className="text-sm text-gray-500">
-                        {completed}/{total} completed
+                        Reward: ${Number(status.amount).toFixed(2)}
                     </p>
                 </div>
 
-                {!taskRunning && !countdown && (
-                    <button
-                        onClick={startTask}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg"
-                    >
-                        Start Now
-                    </button>
-                )}
-
-                {taskRunning && (
-                    <button className="px-4 py-2 bg-gray-400 text-white rounded-lg" disabled>
-                        Running...
-                    </button>
-                )}
-
-                {countdown && (
-                    <span className="text-blue-600 text-sm font-semibold">{countdown}</span>
-                )}
+                <button
+                    onClick={startTask}
+                    disabled={running}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50"
+                >
+                    {running ? "Running..." : "Start Now"}
+                </button>
             </div>
 
             {message && (

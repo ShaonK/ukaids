@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 
 // ---------- helpers ----------
-function getDayInfo(timezone = "UTC") {
+function getDayInfo(timezone = "Asia/Dhaka") {
   const now = new Date(
     new Date().toLocaleString("en-US", { timeZone: timezone })
   );
@@ -11,7 +11,7 @@ function getDayInfo(timezone = "UTC") {
   const dayShort = now.toLocaleDateString("en-US", {
     weekday: "short",
     timeZone: timezone,
-  }); // Mon, Tue, Sat
+  }); // Mon, Tue, Wed...
 
   const midnight = new Date(now);
   midnight.setHours(0, 0, 0, 0);
@@ -42,7 +42,7 @@ export async function GET() {
       return Response.json({ success: true, earning: null });
     }
 
-    // 🔹 Load ROI settings
+    // 🔹 ROI settings
     const settings = await prisma.roiSettings.findFirst();
     const roiDays = settings?.roiDays?.split(",") ?? [
       "Mon",
@@ -51,12 +51,14 @@ export async function GET() {
       "Thu",
       "Fri",
     ];
-    const timezone = settings?.timezone ?? "UTC";
+
+    // ✅ FORCE Bangladesh timezone
+    const timezone = settings?.timezone || "Asia/Dhaka";
 
     const { dayShort, todayMidnightMs, nextMidnightMs } =
       getDayInfo(timezone);
 
-    // ❌ OFF DAY (Sat–Sun)
+    // ❌ Off day (Sat / Sun)
     if (!roiDays.includes(dayShort)) {
       return Response.json({
         success: true,
@@ -72,7 +74,7 @@ export async function GET() {
       ? new Date(activePkg.lastRoiAt).getTime()
       : null;
 
-    // ✅ Mon–Fri daily rule
+    // ✅ Ready if not completed today
     const isReady = !lastRoiMs || lastRoiMs < todayMidnightMs;
     const nextRunMs = isReady ? null : nextMidnightMs;
 

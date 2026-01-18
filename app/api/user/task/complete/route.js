@@ -5,7 +5,7 @@ import { creditWallet } from "@/lib/walletService";
 import { distributeLevelIncome } from "@/lib/levelService";
 
 // ---------- helpers ----------
-function getDayInfo(timezone = "UTC") {
+function getDayInfo(timezone = "Asia/Dhaka") {
   const now = new Date(
     new Date().toLocaleString("en-US", { timeZone: timezone })
   );
@@ -40,7 +40,7 @@ export async function POST() {
       return Response.json({ error: "No active package" }, { status: 400 });
     }
 
-    // 🔹 Load ROI settings
+    // 🔹 ROI settings
     const settings = await prisma.roiSettings.findFirst();
     const roiDays = settings?.roiDays?.split(",") ?? [
       "Mon",
@@ -49,11 +49,13 @@ export async function POST() {
       "Thu",
       "Fri",
     ];
-    const timezone = settings?.timezone ?? "UTC";
+
+    // ✅ FORCE Bangladesh timezone
+    const timezone = settings?.timezone || "Asia/Dhaka";
 
     const { dayShort, todayMidnightMs } = getDayInfo(timezone);
 
-    // ❌ Weekend block (API safety)
+    // ❌ Weekend safety
     if (!roiDays.includes(dayShort)) {
       return Response.json(
         { error: "Task not available today" },
@@ -106,14 +108,20 @@ export async function POST() {
     });
 
     // -------------------------
-    // 2️⃣ LEVEL INCOME
+    // 2️⃣ LEVEL INCOME (outside tx)
     // -------------------------
     await distributeLevelIncome({
       buyerId: user.id,
       roiAmount,
     });
 
-    return Response.json({ success: true, roi: roiAmount });
+    return Response.json({
+      success: true,
+      roi: roiAmount,
+      nextRun: new Date(
+        new Date().setHours(24, 0, 0, 0)
+      ).toISOString(),
+    });
   } catch (err) {
     console.error("❌ TASK COMPLETE ERROR:", err);
     return Response.json({ error: "Server error" }, { status: 500 });
