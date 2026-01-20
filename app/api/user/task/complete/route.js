@@ -3,16 +3,23 @@ import { getUser } from "@/lib/getUser";
 import { creditWallet } from "@/lib/walletService";
 import { distributeLevelIncome } from "@/lib/levelService";
 
-const TIMEZONE = "Asia/Dhaka";
+// Bangladesh = UTC +6
+function getBDMidnightUTC() {
+  const now = new Date();
 
-// 🔹 helper: today midnight in BD
-function getBDMidnight() {
-  const now = new Date(
-    new Date().toLocaleString("en-US", { timeZone: TIMEZONE })
-  );
-  const midnight = new Date(now);
-  midnight.setHours(0, 0, 0, 0);
-  return midnight.getTime();
+  const bdYear = now.getUTCFullYear();
+  const bdMonth = now.getUTCMonth();
+  const bdDate = now.getUTCDate();
+
+  // BD midnight = UTC 18:00 (previous day)
+  let bdMidnightUTC = Date.UTC(bdYear, bdMonth, bdDate, 18, 0, 0);
+
+  // If current UTC time < 18:00, BD midnight was yesterday
+  if (now.getUTCHours() < 18) {
+    bdMidnightUTC -= 24 * 60 * 60 * 1000;
+  }
+
+  return bdMidnightUTC;
 }
 
 export async function POST() {
@@ -30,7 +37,6 @@ export async function POST() {
       return Response.json({ error: "No active package" }, { status: 400 });
     }
 
-    // 🔹 ROI settings
     const settings = await prisma.roiSettings.findFirst();
     const roiDays = settings?.roiDays?.split(",") ?? [
       "Mon",
@@ -40,10 +46,11 @@ export async function POST() {
       "Fri",
     ];
 
-    const todayBD = new Date().toLocaleDateString("en-US", {
+    // Today in BD (weekday check only)
+    const todayBD = new Intl.DateTimeFormat("en-US", {
       weekday: "short",
-      timeZone: TIMEZONE,
-    });
+      timeZone: "Asia/Dhaka",
+    }).format(new Date());
 
     if (!roiDays.includes(todayBD)) {
       return Response.json(
@@ -52,9 +59,9 @@ export async function POST() {
       );
     }
 
-    const todayMidnight = getBDMidnight();
+    const todayMidnight = getBDMidnightUTC();
 
-    // ❌ already done today
+    // ❌ Already completed today
     if (
       activePkg.lastRoiAt &&
       new Date(activePkg.lastRoiAt).getTime() >= todayMidnight
@@ -67,7 +74,7 @@ export async function POST() {
 
     const roiAmount = Number((activePkg.amount * 0.02).toFixed(6));
 
-    // 🔥 atomic
+    // 🔥 Atomic transaction
     await prisma.$transaction(async (tx) => {
       await creditWallet({
         tx,
@@ -81,7 +88,7 @@ export async function POST() {
       await tx.userPackage.update({
         where: { id: activePkg.id },
         data: {
-          lastRoiAt: new Date(),
+          lastRoiAt: new Date(), // ✅ UTC
           totalEarned: { increment: roiAmount },
         },
       });
@@ -92,13 +99,13 @@ export async function POST() {
       roiAmount,
     });
 
-    // 🔥 next run = NEXT BD MIDNIGHT
-    const nextMidnight = todayMidnight + 24 * 60 * 60 * 1000;
+    // 🔁 Next BD midnight
+    const nextRunMs = todayMidnight + 24 * 60 * 60 * 1000;
 
     return Response.json({
       success: true,
       roi: roiAmount,
-      nextRunMs: nextMidnight,
+      nextRunMs,
     });
   } catch (err) {
     console.error("❌ TASK COMPLETE ERROR:", err);

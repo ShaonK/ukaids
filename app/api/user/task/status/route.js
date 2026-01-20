@@ -1,15 +1,21 @@
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 
-const TIMEZONE = "Asia/Dhaka";
+// Bangladesh = UTC +6
+function getBDMidnightUTC() {
+  const now = new Date();
 
-function getBDMidnight() {
-  const now = new Date(
-    new Date().toLocaleString("en-US", { timeZone: TIMEZONE })
-  );
-  const midnight = new Date(now);
-  midnight.setHours(0, 0, 0, 0);
-  return midnight.getTime();
+  const bdYear = now.getUTCFullYear();
+  const bdMonth = now.getUTCMonth();
+  const bdDate = now.getUTCDate();
+
+  let bdMidnightUTC = Date.UTC(bdYear, bdMonth, bdDate, 18, 0, 0);
+
+  if (now.getUTCHours() < 18) {
+    bdMidnightUTC -= 24 * 60 * 60 * 1000;
+  }
+
+  return bdMidnightUTC;
 }
 
 export async function GET() {
@@ -36,10 +42,10 @@ export async function GET() {
       "Fri",
     ];
 
-    const todayBD = new Date().toLocaleDateString("en-US", {
+    const todayBD = new Intl.DateTimeFormat("en-US", {
       weekday: "short",
-      timeZone: TIMEZONE,
-    });
+      timeZone: "Asia/Dhaka",
+    }).format(new Date());
 
     if (!roiDays.includes(todayBD)) {
       return Response.json({
@@ -51,7 +57,7 @@ export async function GET() {
       });
     }
 
-    const todayMidnight = getBDMidnight();
+    const todayMidnight = getBDMidnightUTC();
     const lastRun = activePkg.lastRoiAt
       ? new Date(activePkg.lastRoiAt).getTime()
       : null;
