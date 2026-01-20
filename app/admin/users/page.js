@@ -1,16 +1,15 @@
-import { Suspense } from "react";
+export const dynamic = "force-dynamic";
+
+import { getAdmin } from "@/lib/getAdmin";
+import { redirect } from "next/navigation";
 import AdminUsersClient from "./AdminUsersClient";
 
-export default function AdminUsersPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="p-6 text-center text-gray-500">
-          Loading users...
-        </div>
-      }
-    >
-      <AdminUsersClient />
-    </Suspense>
-  );
+export default async function AdminUsersPage() {
+  const admin = await getAdmin();
+
+  if (!admin) {
+    redirect("/admin/login");
+  }
+
+  return <AdminUsersClient />;
 }

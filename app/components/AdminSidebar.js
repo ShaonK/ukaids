@@ -43,7 +43,8 @@ export default function AdminSidebar() {
 
     // ⭐ VIP RANK
     {
-      href: "/admin/rank-eligible", label: "Rank Eligible Users", icon: Star },
+      href: "/admin/rank-eligible", label: "Rank Eligible Users", icon: Star
+    },
 
     { href: "/admin/packages", label: "Packages", icon: Package2 },
     { href: "/admin/audit-logs", label: "Audit Logs", icon: ClipboardList },
@@ -55,6 +56,8 @@ export default function AdminSidebar() {
     { href: "/admin/withdraws", label: "Withdraws (Pending)", icon: Wallet },
     { href: "/admin/withdraws/approved", label: "Approved Withdraws", icon: CheckCircle },
     { href: "/admin/withdraws/rejected", label: "Rejected Withdraws", icon: XCircle },
+    { href: "/admin/user-control", label: "User Control", icon: Users, },
+    { href: "/admin/wallet-deductions", label: "Wallet Deductions", icon: ClipboardList,},
 
     { href: "/admin/transfers", label: "Transfers", icon: Wallet },
     { href: "/admin/settings", label: "Settings", icon: Settings },

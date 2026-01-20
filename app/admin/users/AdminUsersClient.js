@@ -10,13 +10,23 @@ export default function AdminUsersClient() {
 
     const PER_PAGE = 10;
 
-    async function loadUsers(query = search) {
+    async function loadUsers(query = "") {
         try {
-            const res = await fetch(`/api/admin/users?q=${query}`);
+            const res = await fetch(`/api/admin/users?q=${query}`, {
+                cache: "no-store",
+                credentials: "include", // 🔑 MUST
+            });
+
+            if (!res.ok) {
+                setUsers([]);
+                return;
+            }
+
             const data = await res.json();
-            setUsers(data || []);
+            setUsers(data.users || []);
         } catch (e) {
             console.error("LOAD USERS ERROR:", e);
+            setUsers([]);
         }
     }
 
@@ -28,53 +38,38 @@ export default function AdminUsersClient() {
         try {
             await fetch("/api/admin/user-status", {
                 method: "POST",
+                credentials: "include",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userId: id, isBlocked: status }),
             });
-            loadUsers();
+            loadUsers(search);
         } catch (e) {
-            console.error("UPDATE STATUS ERROR:", e);
             alert("Action failed");
         }
     }
 
-    /* --------------------
-       SEARCH + PAGINATION
-    -------------------- */
     const filtered = users.filter(
         (u) =>
-            u.username.toLowerCase().includes(search.toLowerCase()) ||
-            u.mobile.includes(search)
+            u.username?.toLowerCase().includes(search.toLowerCase()) ||
+            u.mobile?.includes(search)
     );
 
-    const totalPages = Math.max(
-        1,
-        Math.ceil(filtered.length / PER_PAGE)
-    );
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
 
     const paginated = filtered.slice(
         (page - 1) * PER_PAGE,
         page * PER_PAGE
     );
 
-    function copyText(text) {
-        navigator.clipboard.writeText(text);
-        alert(`Copied: ${text}`);
-    }
-
     return (
         <div className="p-4">
-            {/* PAGE TITLE */}
-            <h1 className="text-2xl font-bold mb-4">
-                Users
-            </h1>
+            <h1 className="text-2xl font-bold mb-4">Users</h1>
 
-            {/* SEARCH */}
             <div className="flex items-center mb-3 gap-2">
-                <Search size={18} className="text-gray-600" />
+                <Search size={18} />
                 <input
                     placeholder="Search user by username or mobile..."
-                    className="border px-3 py-2 rounded-lg w-full focus:ring focus:ring-blue-200 outline-none text-sm"
+                    className="border px-3 py-2 rounded-lg w-full"
                     value={search}
                     onChange={(e) => {
                         setSearch(e.target.value);
@@ -84,66 +79,42 @@ export default function AdminUsersClient() {
                 />
             </div>
 
-            {/* TABLE */}
-            <div
-                className="rounded-xl overflow-hidden mx-auto w-full bg-white border border-gray-200"
-            >
-                {/* HEADER */}
-                <div className="grid grid-cols-5 text-sm font-semibold bg-gray-100 h-10 items-center px-2 border-b">
+            <div className="border rounded-lg overflow-hidden">
+                <div className="grid grid-cols-5 bg-gray-100 p-2 font-semibold text-sm">
                     <span>Username</span>
                     <span>Mobile</span>
                     <span>Joined</span>
                     <span className="text-center">Status</span>
-                    <span className="text-right pr-3">Action</span>
+                    <span className="text-right">Action</span>
                 </div>
 
-                {/* ROWS */}
+                {paginated.length === 0 && (
+                    <div className="text-center py-6 text-gray-500">
+                        No users found
+                    </div>
+                )}
+
                 {paginated.map((u) => (
                     <div
                         key={u.id}
-                        className="grid grid-cols-5 text-sm h-[42px] items-center px-2 border-b"
+                        className="grid grid-cols-5 p-2 text-sm border-t"
                     >
-                        <span
-                            className="truncate cursor-pointer"
-                            onClick={() => copyText(u.username)}
-                        >
-                            {u.username}
-                        </span>
-
-                        <span
-                            className="truncate cursor-pointer"
-                            onClick={() => copyText(u.mobile)}
-                        >
-                            {u.mobile}
-                        </span>
-
-                        <span
-                            className="truncate cursor-pointer"
-                            onClick={() =>
-                                copyText(
-                                    new Date(u.createdAt).toLocaleDateString()
-                                )
-                            }
-                        >
+                        <span>{u.username}</span>
+                        <span>{u.mobile}</span>
+                        <span>
                             {new Date(u.createdAt).toLocaleDateString()}
                         </span>
-
                         <span className="flex justify-center">
                             {u.isBlocked ? (
-                                <Ban size={18} className="text-red-600" />
+                                <Ban className="text-red-600" size={18} />
                             ) : (
-                                <CheckCircle size={18} className="text-green-600" />
+                                <CheckCircle className="text-green-600" size={18} />
                             )}
                         </span>
-
-                        <div className="text-right pr-2">
+                        <div className="text-right">
                             <button
-                                onClick={() =>
-                                    updateStatus(u.id, !u.isBlocked)
-                                }
-                                className={`px-3 py-1 text-xs rounded font-medium ${u.isBlocked
-                                        ? "bg-green-600 text-white"
-                                        : "bg-red-600 text-white"
+                                onClick={() => updateStatus(u.id, !u.isBlocked)}
+                                className={`px-3 py-1 rounded text-white text-xs ${u.isBlocked ? "bg-green-600" : "bg-red-600"
                                     }`}
                             >
                                 {u.isBlocked ? "Unblock" : "Block"}
@@ -153,24 +124,19 @@ export default function AdminUsersClient() {
                 ))}
             </div>
 
-            {/* PAGINATION */}
-            <div className="flex justify-between items-center mt-4 text-sm px-2">
+            <div className="flex justify-between mt-4 text-sm">
                 <button
                     disabled={page === 1}
                     onClick={() => setPage(page - 1)}
-                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40"
                 >
                     Previous
                 </button>
-
-                <span className="font-medium text-gray-700">
+                <span>
                     Page {page} / {totalPages}
                 </span>
-
                 <button
                     disabled={page === totalPages}
                     onClick={() => setPage(page + 1)}
-                    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-40"
                 >
                     Next
                 </button>
