@@ -24,11 +24,13 @@ function getBDMidnightUTC() {
 
 export async function POST() {
   try {
+    // 🔐 Auth
     const user = await getUser();
     if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // 📦 Active package
     const activePkg = await prisma.userPackage.findFirst({
       where: { userId: user.id, isActive: true },
     });
@@ -37,6 +39,7 @@ export async function POST() {
       return Response.json({ error: "No active package" }, { status: 400 });
     }
 
+    // ⚙️ ROI settings
     const settings = await prisma.roiSettings.findFirst();
     const roiDays = settings?.roiDays?.split(",") ?? [
       "Mon",
@@ -46,7 +49,7 @@ export async function POST() {
       "Fri",
     ];
 
-    // Today in BD (weekday check only)
+    // 📅 Today weekday in Bangladesh
     const todayBD = new Intl.DateTimeFormat("en-US", {
       weekday: "short",
       timeZone: "Asia/Dhaka",
@@ -72,10 +75,14 @@ export async function POST() {
       );
     }
 
-    const roiAmount = Number((activePkg.amount * 0.02).toFixed(6));
+    // 💰 ROI calculation (2%)
+    const roiAmount = Number((Number(activePkg.amount) * 0.02).toFixed(6));
 
-    // 🔥 Atomic transaction
+    let roiHistoryRow = null;
+
+    // 🔥 ATOMIC TRANSACTION
     await prisma.$transaction(async (tx) => {
+      // 1️⃣ Credit ROI wallet
       await creditWallet({
         tx,
         userId: user.id,
@@ -85,21 +92,32 @@ export async function POST() {
         note: "Daily task ROI",
       });
 
+      // 2️⃣ Insert ROI history (🔥 REQUIRED FOR LIFETIME INCOME)
+      roiHistoryRow = await tx.roiHistory.create({
+        data: {
+          userId: user.id,
+          amount: roiAmount,
+        },
+      });
+
+      // 3️⃣ Update active package stats
       await tx.userPackage.update({
         where: { id: activePkg.id },
         data: {
-          lastRoiAt: new Date(), // ✅ UTC
+          lastRoiAt: new Date(), // UTC
           totalEarned: { increment: roiAmount },
         },
       });
     });
 
+    // 🌐 Level income distribution (uses roiHistory if needed)
     await distributeLevelIncome({
       buyerId: user.id,
       roiAmount,
+      roiHistoryId: roiHistoryRow?.id, // safe to pass
     });
 
-    // 🔁 Next BD midnight
+    // ⏭️ Next run = next BD midnight
     const nextRunMs = todayMidnight + 24 * 60 * 60 * 1000;
 
     return Response.json({
