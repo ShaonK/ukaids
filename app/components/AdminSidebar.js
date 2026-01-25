@@ -14,7 +14,9 @@ import {
   ChevronRight,
   ClipboardList,
   Package2,
-  Star, // ⭐ NEW
+  Star,
+  Gift,        // 🎁
+  History,     // 🧾
 } from "lucide-react";
 
 export default function AdminSidebar() {
@@ -39,11 +41,11 @@ export default function AdminSidebar() {
   const links = [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/users", label: "Users", icon: Users },
-    { href: "/admin/reports/weekly", label: "Weekly Report", icon: Users },
 
-    // ⭐ VIP RANK
     {
-      href: "/admin/rank-eligible", label: "Rank Eligible Users", icon: Star
+      href: "/admin/rank-eligible",
+      label: "Rank Eligible Users",
+      icon: Star,
     },
 
     { href: "/admin/packages", label: "Packages", icon: Package2 },
@@ -56,13 +58,18 @@ export default function AdminSidebar() {
     { href: "/admin/withdraws", label: "Withdraws (Pending)", icon: Wallet },
     { href: "/admin/withdraws/approved", label: "Approved Withdraws", icon: CheckCircle },
     { href: "/admin/withdraws/rejected", label: "Rejected Withdraws", icon: XCircle },
-    { href: "/admin/user-control", label: "User Control", icon: Users, },
-    { href: "/admin/wallet-deductions", label: "Wallet Deductions", icon: ClipboardList,},
+
+    { href: "/admin/user-control", label: "User Control", icon: Users },
+    { href: "/admin/wallet-deductions", label: "Wallet Deductions", icon: ClipboardList },
+
+    // 🎁 GIFT SYSTEM
+    { href: "/admin/gift-wallet", label: "Send Gift", icon: Gift },
+    { href: "/admin/gift-wallet/history", label: "Gift History", icon: History },
 
     { href: "/admin/transfers", label: "Transfers", icon: Wallet },
-    { href: "/admin/settings", label: "Settings", icon: Settings },
     { href: "/admin/wallet-history", label: "Wallet Credit History", icon: ClipboardList },
 
+    { href: "/admin/settings", label: "Settings", icon: Settings },
   ];
 
   return (
@@ -80,8 +87,9 @@ export default function AdminSidebar() {
 
       <aside
         ref={sidebarRef}
-        className={`absolute left-0 top-0 h-full z-50 bg-[var(--sidebar-bg)] shadow-xl transition-all duration-500 ${collapsed ? "w-0 opacity-0" : "w-[230px] opacity-100"
-          }`}
+        className={`absolute left-0 top-0 h-full z-50 bg-[var(--sidebar-bg)] shadow-xl transition-all duration-500 ${
+          collapsed ? "w-0 opacity-0" : "w-[230px] opacity-100"
+        }`}
       >
         {!collapsed && (
           <button
