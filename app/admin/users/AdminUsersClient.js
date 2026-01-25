@@ -4,143 +4,195 @@ import { useEffect, useState } from "react";
 import { Ban, CheckCircle, Search } from "lucide-react";
 
 export default function AdminUsersClient() {
-    const [users, setUsers] = useState([]);
-    const [search, setSearch] = useState("");
-    const [page, setPage] = useState(1);
+  const [users, setUsers] = useState([]);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
-    const PER_PAGE = 10;
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-    async function loadUsers(query = "") {
-        try {
-            const res = await fetch(`/api/admin/users?q=${query}`, {
-                cache: "no-store",
-                credentials: "include", // 🔑 MUST
-            });
+  const PER_PAGE = 8;
 
-            if (!res.ok) {
-                setUsers([]);
-                return;
-            }
-
-            const data = await res.json();
-            setUsers(data.users || []);
-        } catch (e) {
-            console.error("LOAD USERS ERROR:", e);
-            setUsers([]);
+  /* =========================
+     LOAD USERS (SERVER PAGINATION)
+  ========================= */
+  async function loadUsers(query = search, pageNo = page) {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/admin/users?q=${query}&page=${pageNo}&limit=${PER_PAGE}`,
+        {
+          cache: "no-store",
+          credentials: "include",
         }
+      );
+
+      if (!res.ok) {
+        setUsers([]);
+        setTotalPages(1);
+        setTotalUsers(0);
+        return;
+      }
+
+      const data = await res.json();
+
+      setUsers(Array.isArray(data.users) ? data.users : []);
+      setTotalPages(Number(data.totalPages) || 1);
+      setTotalUsers(Number(data.total) || 0);
+    } catch (e) {
+      console.error("LOAD USERS ERROR:", e);
+      setUsers([]);
+      setTotalPages(1);
+      setTotalUsers(0);
+    } finally {
+      setLoading(false);
     }
+  }
 
-    useEffect(() => {
-        loadUsers();
-    }, []);
+  /* INITIAL LOAD */
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
-    async function updateStatus(id, status) {
-        try {
-            await fetch("/api/admin/user-status", {
-                method: "POST",
-                credentials: "include",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: id, isBlocked: status }),
-            });
-            loadUsers(search);
-        } catch (e) {
-            alert("Action failed");
-        }
+  /* SEARCH */
+  function handleSearch(value) {
+    setSearch(value);
+    setPage(1);
+    loadUsers(value, 1);
+  }
+
+  /* PAGE CHANGE */
+  function changePage(newPage) {
+    setPage(newPage);
+    loadUsers(search, newPage);
+  }
+
+  /* BLOCK / UNBLOCK */
+  async function updateStatus(id, status) {
+    try {
+      await fetch("/api/admin/user-status", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: id, isBlocked: status }),
+      });
+      loadUsers(search, page);
+    } catch {
+      alert("Action failed");
     }
+  }
 
-    const filtered = users.filter(
-        (u) =>
-            u.username?.toLowerCase().includes(search.toLowerCase()) ||
-            u.mobile?.includes(search)
-    );
+  return (
+    <div className="p-4 max-w-3xl mx-auto">
+      <h1 className="text-2xl font-bold mb-1">👤 Users</h1>
 
-    const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+      {/* TOTAL COUNT */}
+      <div className="text-sm text-gray-500 mb-3">
+        Total Users: <strong>{totalUsers}</strong>
+      </div>
 
-    const paginated = filtered.slice(
-        (page - 1) * PER_PAGE,
-        page * PER_PAGE
-    );
+      {/* SEARCH */}
+      <div className="flex items-center mb-4 gap-2">
+        <Search size={18} />
+        <input
+          placeholder="Search by username or mobile"
+          className="border px-3 py-2 rounded-lg w-full"
+          value={search}
+          onChange={(e) => handleSearch(e.target.value)}
+        />
+      </div>
 
-    return (
-        <div className="p-4">
-            <h1 className="text-2xl font-bold mb-4">Users</h1>
-
-            <div className="flex items-center mb-3 gap-2">
-                <Search size={18} />
-                <input
-                    placeholder="Search user by username or mobile..."
-                    className="border px-3 py-2 rounded-lg w-full"
-                    value={search}
-                    onChange={(e) => {
-                        setSearch(e.target.value);
-                        setPage(1);
-                        loadUsers(e.target.value);
-                    }}
-                />
+      {/* USER LIST */}
+      {loading ? (
+        <div className="text-center py-10 text-gray-400">
+          Loading users...
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {users.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              No users found
             </div>
+          )}
 
-            <div className="border rounded-lg overflow-hidden">
-                <div className="grid grid-cols-5 bg-gray-100 p-2 font-semibold text-sm">
-                    <span>Username</span>
-                    <span>Mobile</span>
-                    <span>Joined</span>
-                    <span className="text-center">Status</span>
-                    <span className="text-right">Action</span>
+          {users.map((u) => (
+            <div
+              key={u.id}
+              className="border rounded-xl p-4 bg-white shadow-sm"
+            >
+              {/* HEADER */}
+              <div className="flex justify-between items-center mb-2">
+                <div className="font-semibold">
+                  {u.username}
                 </div>
 
-                {paginated.length === 0 && (
-                    <div className="text-center py-6 text-gray-500">
-                        No users found
-                    </div>
-                )}
-
-                {paginated.map((u) => (
-                    <div
-                        key={u.id}
-                        className="grid grid-cols-5 p-2 text-sm border-t"
-                    >
-                        <span>{u.username}</span>
-                        <span>{u.mobile}</span>
-                        <span>
-                            {new Date(u.createdAt).toLocaleDateString()}
-                        </span>
-                        <span className="flex justify-center">
-                            {u.isBlocked ? (
-                                <Ban className="text-red-600" size={18} />
-                            ) : (
-                                <CheckCircle className="text-green-600" size={18} />
-                            )}
-                        </span>
-                        <div className="text-right">
-                            <button
-                                onClick={() => updateStatus(u.id, !u.isBlocked)}
-                                className={`px-3 py-1 rounded text-white text-xs ${u.isBlocked ? "bg-green-600" : "bg-red-600"
-                                    }`}
-                            >
-                                {u.isBlocked ? "Unblock" : "Block"}
-                            </button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            <div className="flex justify-between mt-4 text-sm">
-                <button
-                    disabled={page === 1}
-                    onClick={() => setPage(page - 1)}
+                <span
+                  className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 ${
+                    u.isBlocked
+                      ? "bg-red-100 text-red-700"
+                      : "bg-green-100 text-green-700"
+                  }`}
                 >
-                    Previous
-                </button>
-                <span>
-                    Page {page} / {totalPages}
+                  {u.isBlocked ? (
+                    <>
+                      <Ban size={12} /> Blocked
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={12} /> Active
+                    </>
+                  )}
                 </span>
-                <button
-                    disabled={page === totalPages}
-                    onClick={() => setPage(page + 1)}
-                >
-                    Next
-                </button>
+              </div>
+
+              {/* BODY */}
+              <div className="text-sm text-gray-700 space-y-1">
+                <div>
+                  <strong>Mobile:</strong> {u.mobile}
+                </div>
+                <div>
+                  <strong>Joined:</strong>{" "}
+                  {new Date(u.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+
+              {/* ACTION */}
+              <button
+                onClick={() => updateStatus(u.id, !u.isBlocked)}
+                className={`mt-3 w-full py-2 rounded-lg text-white text-sm ${
+                  u.isBlocked ? "bg-green-600" : "bg-red-600"
+                }`}
+              >
+                {u.isBlocked ? "Unblock User" : "Block User"}
+              </button>
             </div>
+          ))}
         </div>
-    );
+      )}
+
+      {/* PAGINATION */}
+      <div className="flex justify-between items-center mt-6 text-sm">
+        <button
+          disabled={page <= 1}
+          onClick={() => changePage(page - 1)}
+          className="disabled:opacity-40"
+        >
+          ◀ Previous
+        </button>
+
+        <span>
+          Page {page} / {totalPages}
+        </span>
+
+        <button
+          disabled={page >= totalPages}
+          onClick={() => changePage(page + 1)}
+          className="disabled:opacity-40"
+        >
+          Next ▶
+        </button>
+      </div>
+    </div>
+  );
 }
