@@ -4,7 +4,10 @@ import { getAdmin } from "@/lib/getAdmin";
 export async function GET(req) {
   const admin = await getAdmin();
   if (!admin) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+    return Response.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   const { searchParams } = new URL(req.url);

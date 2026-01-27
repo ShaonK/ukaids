@@ -1,4 +1,3 @@
-// app/api/user/generation-tree/route.js
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
 
@@ -12,12 +11,13 @@ const LEVEL_RATES = {
 
 /**
  * Build MLM tree
- * - current user = parent
- * - direct referral = generation 1
- * - unlock depends on PARENT's direct referrals
+ * Also returns package totals per generation
  */
-async function buildTree(parentUserId, generation = 1) {
-  // children of this parent
+async function buildTree(
+  parentUserId,
+  generation = 1,
+  generationPackages = {}
+) {
   const children = await prisma.user.findMany({
     where: { referredBy: parentUserId },
     select: {
@@ -27,7 +27,6 @@ async function buildTree(parentUserId, generation = 1) {
     },
   });
 
-  // 🔑 direct referrals of THIS parent (unlock condition)
   const parentDirectCount = await prisma.user.count({
     where: { referredBy: parentUserId },
   });
@@ -35,59 +34,44 @@ async function buildTree(parentUserId, generation = 1) {
   const tree = [];
 
   for (const child of children) {
-    const subtree = await buildTree(child.id, generation + 1);
+    /* 🔥 PACKAGE TOTAL FOR THIS USER */
+    const pkgAgg = await prisma.userPackage.aggregate({
+      where: { userId: child.id },
+      _sum: { amount: true },
+    });
+
+    const userPackageTotal = Number(pkgAgg._sum.amount || 0);
+
+    /* 🔥 ADD TO GENERATION TOTAL */
+    if (!generationPackages[generation]) {
+      generationPackages[generation] = 0;
+    }
+    generationPackages[generation] += userPackageTotal;
+
+    const subtree = await buildTree(
+      child.id,
+      generation + 1,
+      generationPackages
+    );
 
     tree.push({
       id: child.id,
       fullname: child.fullname,
       username: child.username,
 
-      // MLM info
       generation,
       rate: LEVEL_RATES[generation] ?? 0,
 
-      // 🔐 level unlock info (IMPORTANT)
       unlockRequired: generation,
       unlockDirects: parentDirectCount,
       isUnlocked: parentDirectCount >= generation,
 
+      packageTotal: userPackageTotal,
       children: subtree,
     });
   }
 
   return tree;
-}
-
-/**
- * Income summary from roiLevelIncome
- */
-async function getIncomeSummary(userId) {
-  const rows = await prisma.roiLevelIncome.findMany({
-    where: { userId },
-    select: {
-      level: true,
-      amount: true,
-    },
-  });
-
-  const summary = {
-    total: 0,
-    levels: {},
-  };
-
-  for (const row of rows) {
-    summary.total += Number(row.amount);
-
-    if (!summary.levels[row.level]) summary.levels[row.level] = 0;
-    summary.levels[row.level] += Number(row.amount);
-  }
-
-  summary.total = Number(summary.total.toFixed(2));
-  Object.keys(summary.levels).forEach((lvl) => {
-    summary.levels[lvl] = Number(summary.levels[lvl].toFixed(2));
-  });
-
-  return summary;
 }
 
 /**
@@ -113,23 +97,31 @@ export async function GET() {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const tree = await buildTree(user.id);
+    const generationPackages = {};
+
+    const tree = await buildTree(
+      user.id,
+      1,
+      generationPackages
+    );
+
     const generationCounts = countGenerations(tree);
 
     const directReferrals = await prisma.user.count({
       where: { referredBy: user.id },
     });
 
-    const income = await getIncomeSummary(user.id);
-
     return Response.json({
       tree,
       generationCounts,
+      generationPackageTotals: generationPackages,
       directReferrals,
-      income,
     });
   } catch (err) {
     console.error("GENERATION API ERROR:", err);
-    return Response.json({ error: "Server error" }, { status: 500 });
+    return Response.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
   }
 }

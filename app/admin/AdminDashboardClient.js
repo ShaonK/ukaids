@@ -6,11 +6,16 @@ export default function AdminDashboardClient() {
   const [stats, setStats] = useState({
     users: 0,
     referrals: 0,
+
+    // ✅ NEW
+    totalPackagePurchaseAmount: 0,
+
     earnings: 0,
     withdrawRequests: 0,
     activeDeposits: 0,
     pendingDeposits: 0,
     totalWithdraws: 0,
+    totalWithdrawAmount: 0,
     newUsersToday: 0,
     newUsersWeek: 0,
     newUsersMonth: 0,
@@ -20,7 +25,9 @@ export default function AdminDashboardClient() {
 
   async function loadStats() {
     try {
-      const res = await fetch("/api/admin/dashboard");
+      const res = await fetch("/api/admin/dashboard", {
+        cache: "no-store",
+      });
       const data = await res.json();
       setStats(data);
     } catch (e) {
@@ -45,17 +52,52 @@ export default function AdminDashboardClient() {
       <div className="grid grid-cols-2 gap-3 mb-6">
         <Card title="Total Users" value={stats.users} />
         <Card title="Total Referrals" value={stats.referrals} />
-        <Card title="Total Earnings" value={`$${stats.earnings}`} />
-        <Card title="Withdraw Requests" value={stats.withdrawRequests} />
+
+        {/* ✅ NEW CARD */}
+        <Card
+          title="Total Package Purchased"
+          value={`$${Number(
+            stats.totalPackagePurchaseAmount
+          ).toFixed(2)}`}
+        />
+
+        <Card
+          title="Total Earnings"
+          value={`$${Number(stats.earnings).toFixed(2)}`}
+        />
+
+        <Card
+          title="Withdraw Requests"
+          value={stats.withdrawRequests}
+        />
+
         <Card title="Active Deposits" value={stats.activeDeposits} />
-        <Card title="Pending Deposits" value={stats.pendingDeposits} />
-        <Card title="Total Withdraws" value={stats.totalWithdraws} />
+
+        <Card
+          title="Pending Deposits"
+          value={stats.pendingDeposits}
+        />
+
+        <Card
+          title="Total Withdraws"
+          value={stats.totalWithdraws}
+        />
+
+        <Card
+          title="Total Withdraw Given"
+          value={`$${Number(
+            stats.totalWithdrawAmount
+          ).toFixed(2)}`}
+        />
       </div>
 
       {/* USER STATISTICS */}
       <Section title="User Statistics">
         <Row label="New Users Today" value={stats.newUsersToday} />
-        <Row label="New Users This Week" value={stats.newUsersWeek} />
+        <Row
+          label="New Users This Week"
+          value={stats.newUsersWeek}
+        />
         <Row
           label="New Users This Month"
           value={stats.newUsersMonth}
@@ -65,7 +107,10 @@ export default function AdminDashboardClient() {
 
       {/* REFERRAL PERFORMANCE */}
       <Section title="Referral Performance">
-        <Row label="Referral ClickClicks" value={stats.referralClicks} />
+        <Row
+          label="Referral ClickClicks"
+          value={stats.referralClicks}
+        />
         <Row
           label="Conversion Rate"
           value={`${stats.conversionRate}%`}

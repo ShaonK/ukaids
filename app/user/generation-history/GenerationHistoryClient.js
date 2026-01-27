@@ -5,12 +5,12 @@ import { useEffect, useState } from "react";
 export default function GenerationHistoryClient() {
   const [tree, setTree] = useState([]);
   const [generationCounts, setGenerationCounts] = useState({});
-  const [income, setIncome] = useState({ total: 0, levels: {} });
+  const [generationPackages, setGenerationPackages] = useState({});
   const [directs, setDirects] = useState(0);
   const [expanded, setExpanded] = useState({});
 
   function toggle(id) {
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+    setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
   }
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export default function GenerationHistoryClient() {
 
       setTree(data.tree || []);
       setGenerationCounts(data.generationCounts || {});
-      setIncome(data.income || { total: 0, levels: {} });
+      setGenerationPackages(data.generationPackageTotals || {});
       setDirects(data.directReferrals || 0);
     }
 
@@ -53,24 +53,13 @@ export default function GenerationHistoryClient() {
             </p>
 
             <p className="text-xs text-yellow-400">
-              Rate: {(node.rate * 100).toFixed(0)}%
+              Package Total: {node.packageTotal.toFixed(2)}
             </p>
-
-            {/* 🔐 LEVEL UNLOCK STATUS */}
-            {node.isUnlocked ? (
-              <p className="text-xs text-green-400">
-                Level Unlocked
-              </p>
-            ) : (
-              <p className="text-xs text-red-400">
-                Locked ({node.unlockDirects}/{node.unlockRequired} directs)
-              </p>
-            )}
           </div>
         </div>
 
         {isOpen &&
-          node.children?.map((child) => (
+          node.children?.map(child => (
             <Node key={child.id} node={child} />
           ))}
       </div>
@@ -83,7 +72,6 @@ export default function GenerationHistoryClient() {
         Generation History
       </h2>
 
-      {/* DIRECT REFERRALS */}
       <div className="bg-[#1A1A1A] p-4 rounded-lg mb-4">
         <p className="text-yellow-400 font-semibold">
           Your Direct Referrals
@@ -91,29 +79,13 @@ export default function GenerationHistoryClient() {
         <p className="text-green-400 text-lg">{directs}</p>
       </div>
 
-      {/* TOTAL LEVEL INCOME */}
-      <div className="bg-[#1A1A1A] p-4 rounded-lg mb-4">
-        <p className="text-yellow-400 font-semibold">
-          Total Level Income
-        </p>
-        <p className="text-green-400 text-lg">
-          {income.total.toFixed(2)}
-        </p>
-      </div>
-
       {/* GENERATION SUMMARY */}
       <div className="bg-[#1A1A1A] p-4 rounded-lg mb-4">
         <p className="text-yellow-400 font-semibold mb-2">
-          Generation Summary
+          Generation Summary (Package Purchase)
         </p>
 
-        {Object.keys(generationCounts).length === 0 && (
-          <p className="text-gray-400 text-sm">
-            No downline users.
-          </p>
-        )}
-
-        {Object.keys(generationCounts).map((g) => (
+        {Object.keys(generationCounts).map(g => (
           <div
             key={g}
             className="flex justify-between text-sm mb-1"
@@ -123,9 +95,9 @@ export default function GenerationHistoryClient() {
             </span>
 
             <span className="text-green-400">
-              {income.levels[g]
-                ? income.levels[g].toFixed(2)
-                : "0.00"}
+              {Number(
+                generationPackages[g] || 0
+              ).toFixed(2)}
             </span>
           </div>
         ))}
@@ -142,7 +114,7 @@ export default function GenerationHistoryClient() {
             No referrals yet.
           </p>
         ) : (
-          tree.map((node) => (
+          tree.map(node => (
             <Node key={node.id} node={node} />
           ))
         )}

@@ -1,5 +1,6 @@
 "use client";
 export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
@@ -7,14 +8,21 @@ export default function AdminUserControlPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
   useEffect(() => {
     async function load() {
+      setLoading(true);
       try {
-        const res = await fetch("/api/admin/users", {
-          cache: "no-store",
-        });
+        const res = await fetch(
+          `/api/admin/users?page=${page}&limit=10`,
+          { cache: "no-store" }
+        );
         const data = await res.json();
+
         setUsers(Array.isArray(data.users) ? data.users : []);
+        setTotalPages(data.totalPages || 1);
       } catch {
         setUsers([]);
       } finally {
@@ -23,7 +31,7 @@ export default function AdminUserControlPage() {
     }
 
     load();
-  }, []);
+  }, [page]);
 
   if (loading) {
     return <div className="p-6">Loading users...</div>;
@@ -46,7 +54,7 @@ export default function AdminUserControlPage() {
           <Link
             key={u.id}
             href={`/admin/user-control/${u.id}`}
-            className="block border rounded p-3"
+            className="block border rounded p-3 hover:bg-gray-50"
           >
             <div className="font-medium">
               {u.username}
@@ -57,14 +65,43 @@ export default function AdminUserControlPage() {
 
             <span
               className={`inline-block mt-2 px-2 py-0.5 text-xs rounded
-                ${u.isBlocked
-                  ? "bg-red-100 text-red-600"
-                  : "bg-green-100 text-green-600"}`}
+                ${
+                  u.isBlocked
+                    ? "bg-red-100 text-red-600"
+                    : "bg-green-100 text-green-600"
+                }`}
             >
               {u.isBlocked ? "Inactive" : "Active"}
             </span>
           </Link>
         ))}
+      </div>
+
+      {/* PAGINATION */}
+      <div className="flex items-center justify-between mt-6">
+        <button
+          onClick={() => setPage(p => Math.max(1, p - 1))}
+          disabled={page === 1}
+          className="px-3 py-1 border rounded disabled:opacity-40"
+        >
+          Previous
+        </button>
+
+        <span className="text-sm text-gray-600">
+          Page {page} of {totalPages}
+        </span>
+
+        <button
+          onClick={() =>
+            setPage(p =>
+              p < totalPages ? p + 1 : p
+            )
+          }
+          disabled={page >= totalPages}
+          className="px-3 py-1 border rounded disabled:opacity-40"
+        >
+          Next
+        </button>
       </div>
     </div>
   );

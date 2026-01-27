@@ -50,6 +50,7 @@ export default function AdminSidebar() {
 
     { href: "/admin/packages", label: "Packages", icon: Package2 },
     { href: "/admin/audit-logs", label: "Audit Logs", icon: ClipboardList },
+    { href: "/admin/reports/weekly", label: "Weekly Reports", icon: ClipboardList },
 
     { href: "/admin/deposits", label: "Deposits (Pending)", icon: Wallet },
     { href: "/admin/deposits/approved", label: "Approved Deposits", icon: CheckCircle },
