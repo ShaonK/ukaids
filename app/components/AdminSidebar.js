@@ -42,11 +42,8 @@ export default function AdminSidebar() {
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/users", label: "Users", icon: Users },
 
-    {
-      href: "/admin/rank-eligible",
-      label: "Rank Eligible Users",
-      icon: Star,
-    },
+    {href: "/admin/rank-eligible", label: "Rank Eligible Users", icon: Star },
+    { href: "/admin/notices", label: "Notices", icon: ClipboardList },
 
     { href: "/admin/packages", label: "Packages", icon: Package2 },
     { href: "/admin/audit-logs", label: "Audit Logs", icon: ClipboardList },
@@ -88,9 +85,8 @@ export default function AdminSidebar() {
 
       <aside
         ref={sidebarRef}
-        className={`absolute left-0 top-0 h-full z-50 bg-[var(--sidebar-bg)] shadow-xl transition-all duration-500 ${
-          collapsed ? "w-0 opacity-0" : "w-[230px] opacity-100"
-        }`}
+        className={`absolute left-0 top-0 h-full z-50 bg-[var(--sidebar-bg)] shadow-xl transition-all duration-500 ${collapsed ? "w-0 opacity-0" : "w-[230px] opacity-100"
+          }`}
       >
         {!collapsed && (
           <button

@@ -414,3 +414,10 @@ model RankHistory {
 
   user  User @relation(fields: [userId], references: [id])
 }
+model Notice {
+  id        Int      @id @default(autoincrement())
+  title     String
+  message   String
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

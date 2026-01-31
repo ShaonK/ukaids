@@ -9,6 +9,7 @@ import QuickActions from "./components/QuickActions";
 import InviteButton from "./components/InviteButton";
 import IncomeOptions from "./components/IncomeOptions";
 import FeatherImage from "./components/FeatherImage";
+import NoticeModal from "./components/NoticeModal";
 
 export default function DashboardClient() {
   const [wallet, setWallet] = useState({
@@ -30,6 +31,31 @@ export default function DashboardClient() {
   });
 
   const [loading, setLoading] = useState(true);
+
+  // 🔔 NOTICE STATE
+  const [notice, setNotice] = useState(null);
+  const [noticeClosed, setNoticeClosed] = useState(false);
+
+  /* =========================
+     LOAD ACTIVE NOTICE
+  ========================= */
+  useEffect(() => {
+    async function loadNotice() {
+      try {
+        const res = await fetch("/api/user/active-notice", {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (data) setNotice(data);
+      } catch (err) {
+        console.error("Notice load error:", err);
+      }
+    }
+
+    loadNotice();
+  }, []);
 
   /* =========================
      LOAD WALLET
@@ -130,6 +156,17 @@ export default function DashboardClient() {
 
   return (
     <div className="relative mx-auto w-[360px] min-h-screen bg-[#121212]">
+      {/* 🔔 NOTICE MODAL */}
+      {notice && !noticeClosed && (
+        <NoticeModal
+          notice={notice}
+          onClose={() => {
+            setNoticeClosed(true);
+            setNotice(null);
+          }}
+        />
+      )}
+
       {/* BACKGROUND */}
       <div className="absolute inset-0 h-[350px] z-0">
         <Image
@@ -144,51 +181,15 @@ export default function DashboardClient() {
 
       {/* WALLET CARDS */}
       <div className="relative z-10 pt-6 space-y-4">
-        <UserAmountSummaryCard
-          title="Account Balance"
-          amount={fmt(wallet.mainWallet)}
-        />
-
-        {/* ✅ ACTIVE PACKAGE ONLY */}
-        <UserAmountSummaryCard
-          title="Deposit Balance"
-          amount={fmt(activePackageAmount)}
-        />
-
-        <UserAmountSummaryCard
-          title="ROI Wallet"
-          amount={fmt(wallet.roiWallet)}
-        />
-
-        <UserAmountSummaryCard
-          title="Referral Wallet"
-          amount={fmt(wallet.referralWallet)}
-        />
-
-        <UserAmountSummaryCard
-          title="Level Wallet"
-          amount={fmt(wallet.levelWallet)}
-        />
-
-        <UserAmountSummaryCard
-          title="Rank Salary Wallet"
-          amount={fmt(wallet.salaryWallet)}
-        />
-
-        <UserAmountSummaryCard
-          title="Gift Wallet"
-          amount={fmt(wallet.donationWallet)}
-        />
-
-        <UserAmountSummaryCard
-          title="Return Wallet"
-          amount={fmt(wallet.returnWallet)}
-        />
-
-        <UserAmountSummaryCard
-          title="Total Income (Lifetime)"
-          amount={fmt(totalIncome)}
-        />
+        <UserAmountSummaryCard title="Account Balance" amount={fmt(wallet.mainWallet)} />
+        <UserAmountSummaryCard title="Deposit Balance" amount={fmt(activePackageAmount)} />
+        <UserAmountSummaryCard title="ROI Wallet" amount={fmt(wallet.roiWallet)} />
+        <UserAmountSummaryCard title="Referral Wallet" amount={fmt(wallet.referralWallet)} />
+        <UserAmountSummaryCard title="Level Wallet" amount={fmt(wallet.levelWallet)} />
+        <UserAmountSummaryCard title="Rank Salary Wallet" amount={fmt(wallet.salaryWallet)} />
+        <UserAmountSummaryCard title="Gift Wallet" amount={fmt(wallet.donationWallet)} />
+        <UserAmountSummaryCard title="Return Wallet" amount={fmt(wallet.returnWallet)} />
+        <UserAmountSummaryCard title="Total Income (Lifetime)" amount={fmt(totalIncome)} />
       </div>
 
       {/* OTHER SECTIONS */}
